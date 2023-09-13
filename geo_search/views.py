@@ -20,7 +20,6 @@ class Chromeview(APIView):
     def __init__(self):
         self.hostname = "one.one.one.one"
         self.user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.22 Safari/537.36'
-        
         self.options = Options()
         self.options.add_argument(f'user-agent={self.user_agent}')
         self.options.add_argument("--disable-renderer-backgrounding")
@@ -29,20 +28,15 @@ class Chromeview(APIView):
         self.options.add_argument("--disable-features=VizDisplayCompositor")
         self.options.add_argument("--headless")
         self.options.add_argument("--no-sandbox")
-        
         # Call find_free_port without arguments
         self.port_number = self.find_free_port()
         self.port_url = f"--remote-debugging-port={self.port_number}"
         self.options.add_argument(self.port_url)
-        
         self.driver = webdriver.Chrome( options=self.options)
-        
         self.url = f"http://localhost:{self.port_number}"
-        
         self.dev_tools = pychrome.Browser(url=self.url)
         self.tab = self.dev_tools.new_tab()
         self.tab.start()
-        
         self.driver.get("https://www.google.com")
 
     def is_connected(self):
@@ -75,7 +69,6 @@ class Chromeview(APIView):
             # Extract data from the request, for example, latitude and longitude
             latitude = float(request.data.get('latitude'))
             longitude = float(request.data.get('longitude'))
-
             # Initialize Chrome WebDriver
             options = webdriver.ChromeOptions()
             options.add_argument("--headless")
