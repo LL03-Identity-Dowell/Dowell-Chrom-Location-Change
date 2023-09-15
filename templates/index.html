@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Location Selection</title>
+</head>
+<body>
+    <h1>Select a Location</h1>
+    <div>
+        <form method="POST">
+            {% csrf_token %}
+            <select name="location">
+                <option value="" disabled selected>Select a location</option>
+                {% for location in serializer.data %}
+                    <option value="{{ location.id }}">{{ location.city }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Set Location</button>
+        </form>
+    </div>
+
+    <!-- Display longitude and latitude here -->
+    <div id="location-results">
+        {% if longitude and latitude %}
+            <p>Longitude: {{ longitude }}</p>
+            <p>Latitude: {{ latitude }}</p>
+        {% endif %}
+    </div>
+</body>
+</html>

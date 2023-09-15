@@ -6,8 +6,21 @@ from selenium import webdriver
 import socket
 import time
 from selenium.webdriver.common.by import By
+import pandas as pd
+import numpy as np
+import datetime
+import time
+from pymongo import MongoClient
+from rest_framework.views import APIView
+from rest_framework.response import Response
 import requests
 import pychrome
+from rest_framework import generics, status,viewsets
+from rest_framework.response import Response
+from rest_framework.decorators import api_view
+from django.shortcuts import render,get_object_or_404
+from .serializers import LocationSerializer,SearchSerializer
+from .models import Location
 from contextlib import closing
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -15,6 +28,37 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import NoSuchElementException
+
+def homepage_view(request):
+    serializer = LocationSerializer(Location.objects.all(), many=True)
+    if request.method == 'POST':
+        # Deserialize the data using the serializer
+        selected_location_id = request.POST.get('location')  # Assuming 'location' is the name of the select input field
+
+        try:
+            selected_location = Location.objects.get(id=selected_location_id)
+            latitude = selected_location.latitude
+            longitude = selected_location.longitude
+
+            # Make a POST request to your APIView to set the Chrome instance
+            response = requests.post('http://127.0.0.1:8080/api/geo_location/', data={
+                'latitude': latitude,
+                'longitude': longitude,
+            })
+
+            # Handle the response if needed
+
+        except Location.DoesNotExist:
+            # Handle the case where the selected location doesn't exist
+            pass
+
+    else:
+        # Create a serializer to render the form in the template
+        locations = Location.objects.all()
+        serializer = LocationSerializer(locations, many=True)
+
+    return render(request, 'index.html', {'serializer': serializer})
+    
 
 class Chromeview(APIView):
     def __init__(self):
@@ -63,24 +107,28 @@ class Chromeview(APIView):
         finally:
             sock.close()
 
-
     def post(self, request, format=None):
         try:
-            # Extract data from the request, for example, latitude and longitude
-            latitude = float(request.data.get('latitude'))
-            longitude = float(request.data.get('longitude'))
-            # Initialize Chrome WebDriver
-            options = webdriver.ChromeOptions()
-            options.add_argument("--headless")
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--disable-gpu")
-            with closing(webdriver.Chrome(options=options)) as driver:
-                #Simulate setting geolocation
-                self.set_location(latitude, longitude)
-                #Change browser language settings
-                self.change_language_settings(driver, 'en')
-                return Response({"message": "Location set successfully"}, status=status.HTTP_200_OK)
+            # Deserialize the data using the serializer
+            serializer = LocationSerializer(data=request.data)
+            if serializer.is_valid():
+                selected_location = serializer.validated_data
+                
+                # Extract latitude and longitude from the selected location
+                latitude = selected_location.get('latitude')
+                longitude = selected_location.get('longitude')
+                # Initialize Chrome WebDriver
+                options = webdriver.ChromeOptions()
+                options.add_argument("--headless")
+                options.add_argument("--no-sandbox")
+                options.add_argument("--disable-dev-shm-usage")
+                options.add_argument("--disable-gpu")
+                with closing(webdriver.Chrome(options=options)) as driver:
+                    #Simulate setting geolocation
+                    self.set_location(latitude, longitude)
+                    #Change browser language settings
+                    self.change_language_settings(driver, 'en')
+                    return Response({"message": "Location set successfully", "latitude": latitude, "longitude": longitude}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -200,4 +248,125 @@ class Chromeview(APIView):
 
         except Exception as e:
             print(f"Error retrieving alphabets: {str(e)}")  # Handle and log any exceptions
+
+
+
+class CityInfoView(APIView):
+    def get_city_info(self, city, format=None):
+        # Replace this hardcoded data with your actual data
+        latitude = float(self.request.query_params.get('latitude'))
+        longitude = float(self.request.query_params.get('longitude'))
+        city_info = {
+            "City": city,
+            "Languages": "English,Hindi,Spanish",  # Replace with the actual languages
+            "LanguageAbbreviations": "en,hi,es",  # Replace with the actual abbreviations
+            "State": "Delhi",
+            "Latitude": latitude,
+            "Longitude": longitude,
+        }
+        return city_info
+
+    def get_city_languages(self, city):
+        # Replace this hardcoded data with your actual data
+        language_data = {
+            "Language": ["English", "Hindi", "Spanish"],  # Replace with actual languages
+            "English_binary": ["Yes", "No", "Yes"],  # Replace with actual data
+            "Hindi_binary": ["Yes", "No", "Yes"],    # Replace with actual data
+            "Spanish_binary": ["No", "Yes", "No"],   # Replace with actual data
+        }
+
+        # Create a DataFrame
+        df = pd.DataFrame(language_data)
+
+        return df
+
+    def storing_in_mongodb(self, language, browser_language, autocomplete, id_of_object):
+        # Replace this with your MongoDB storage logic
+        pass
+
+    def write(self, i, obj, combination, lat, log, id_of_object, city, data_frame):
+        time.sleep(i)
+        print(i, "---", obj, "---", combination)
+        # Replace this with your actual implementation
+        pass
+
+    def get(self, request, city):
+        # Retrieve information about the city
+        city_info = self.get_city_info(city)
+
+        # Retrieve language data for the city
+        language_dataframe = self.get_city_languages(city)
+
+        # Get latitude and longitude from city_info
+        latitude, longitude = float(city_info['Latitude']), float(city_info['Longitude'])
+
+        # Convert language and language abbreviation strings to lists
+        languages = city_info['Languages'].split(',')
+        languages_abbreviation = city_info['LanguageAbbreviations'].split(',')
+
+        # Create combinations of languages and language abbreviations
+        combinations = list(zip(languages, languages_abbreviation))
+
+        # Simulate processing for each combination
+        results = []
+        for combination in combinations:
+            result = {
+                'Language': combination[0],
+                'LanguageAbbreviation': combination[1],
+                'SampleResult': f'Sample result for {combination[0]} in {city}',
+            }
+            results.append(result)
+
+        return Response({'city_info': city_info, 'language_data': language_dataframe.to_dict(), 'results': results}, status=status.HTTP_200_OK)
+
+    # def get(self, request, city):
+    #     # Connect to MongoDB
+    #     client = MongoClient("mongodb+srv://vaibhav:Password@cluster0.kfdbs.mongodb.net/test?retryWrites=true&w=majority")
+    #     database_name = client.Autocomplete_results
+    #     collection_name = database_name[city]
+
+    #     # Retrieve information about the city
+    #     city_info = self.get_city_info(city)
+
+    #     # Retrieve language data for the city
+    #     language_dataframe = self.get_city_languages(city)
+
+    #     # Get latitude and longitude from city_info
+    #     latitude, longitude = float(city_info['Latitude']), float(city_info['Longitude'])
+
+    #     # Convert language and language abbreviation strings to lists
+    #     languages = city_info['Languages'].split(',')
+    #     languages_abbreviation = city_info['LanguageAbbreviations'].split(',')
+
+    #     # Create combinations of languages and language abbreviations
+    #     combinations = list(zip(languages, languages_abbreviation))
+
+    #     # Create a list of numbers for synchronization
+    #     list_of_numbers = list(range(0, len(combinations)))
+
+    #     # Create instances of CityInfoView for each combination
+    #     list_of_objects = [self for _ in range(len(combinations))]
+
+    #     # Create a thread pool for parallel execution (replace with your implementation)
+    #     pool = []
+
+    #     # Create MongoDB document data
+    #     rec = {
+    #         "City": city,
+    #         "Month": datetime.datetime.now().strftime("%b"),
+    #         "Date": str(datetime.datetime.now()).split(' ')[0],
+    #         "State": city_info['State']
+    #     }
+
+    #     # Insert a new MongoDB document and get its Object ID (replace with your MongoDB logic)
+    #     object_id = collection_name.insert_one(rec).inserted_id
+
+    #     # Use multi-threading to execute the write function for each combination (replace with your logic)
+    #     for i, obj, combination in zip(list_of_numbers, list_of_objects, combinations):
+    #         self.write(i, obj, combination, latitude, longitude, object_id, city, language_dataframe)
+
+    #     # Close the MongoDB client (replace with your MongoDB logic)
+    #     client.close()
+
+    #     return Response({"message": "City info updated in MongoDB"})
 

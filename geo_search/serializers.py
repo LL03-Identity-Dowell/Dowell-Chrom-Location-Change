@@ -1,10 +1,12 @@
 from rest_framework import serializers
-from .models import Coordinates
+from .models import Location
 
-class CoordinatesSerializer(serializers.Serializer):
-    latitude = serializers.FloatField()
-    longitude = serializers.FloatField()
 
-    def create(self, validated_data):
-   
-        return Coordinates.objects.create(**validated_data)
+class SearchSerializer(serializers.Serializer):
+    location = serializers.CharField(required=True)
+    keywords = serializers.CharField(required=True)
+
+class LocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Location
+        fields = '__all__'
