@@ -22,6 +22,7 @@ from django.shortcuts import render,get_object_or_404
 from .serializers import LocationSerializer,SearchSerializer
 from .models import Location
 from contextlib import closing
+from django.views.decorators.csrf import csrf_protect
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
@@ -29,6 +30,8 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import NoSuchElementException
 
+
+@csrf_protect
 def homepage_view(request):
     serializer = LocationSerializer(Location.objects.all(), many=True)
     if request.method == 'POST':
@@ -39,18 +42,26 @@ def homepage_view(request):
             selected_location = Location.objects.get(id=selected_location_id)
             latitude = selected_location.latitude
             longitude = selected_location.longitude
-
+            city = selected_location.city
             # Make a POST request to your APIView to set the Chrome instance
+
             response = requests.post('http://127.0.0.1:8080/api/geo_location/', data={
                 'latitude': latitude,
                 'longitude': longitude,
             })
 
-            # Handle the response if needed
+            #make a get request to the search view
+            url = f'http://127.0.0.1:8080/api/get_city/{city}/'
+            response = requests.get(url, params={
+                'latitude': latitude,
+                'longitude': longitude,
+            })
+
 
         except Location.DoesNotExist:
             # Handle the case where the selected location doesn't exist
-            pass
+            error_message = "Selected location does not exist."
+            return render(request, 'index.html', {'serializer': serializer, 'error_message': error_message})
 
     else:
         # Create a serializer to render the form in the template
