@@ -22,7 +22,7 @@ from django.shortcuts import render,get_object_or_404
 from .serializers import LocationSerializer,SearchSerializer
 from .models import Location
 from contextlib import closing
-from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.csrf import csrf_exempt
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
@@ -30,10 +30,13 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import NoSuchElementException
 import logging
+from django.utils.decorators import method_decorator
+
+
 
 logging.basicConfig(level=logging.INFO)
 
-@csrf_protect
+@csrf_exempt
 def homepage_view(request):
     serializer = LocationSerializer(Location.objects.all(), many=True)
     if request.method == 'POST':
@@ -76,7 +79,7 @@ def homepage_view(request):
 
     return render(request, 'index.html', {'serializer': serializer})
     
-
+@method_decorator(csrf_exempt, name='dispatch')
 class Chromeview(APIView):
     def __init__(self):
         self.hostname = "one.one.one.one"
@@ -267,7 +270,7 @@ class Chromeview(APIView):
             print(f"Error retrieving alphabets: {str(e)}")  # Handle and log any exceptions
 
 
-
+@method_decorator(csrf_exempt, name='dispatch')
 class CityInfoView(APIView):
     def get_city_info(self, city, format=None):
         # Replace this hardcoded data with your actual data
