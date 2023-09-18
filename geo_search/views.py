@@ -29,7 +29,9 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import NoSuchElementException
+import logging
 
+logging.basicConfig(level=logging.INFO)
 
 @csrf_protect
 def homepage_view(request):
@@ -43,12 +45,16 @@ def homepage_view(request):
             latitude = selected_location.latitude
             longitude = selected_location.longitude
             city = selected_location.city
-            # Make a POST request to your APIView to set the Chrome instance
 
+            language = selected_location.language.id
+
+            # Make a POST request to your APIView to set the Chrome instance
             response = requests.post('http://127.0.0.1:8080/api/geo_location/', data={
                 'latitude': latitude,
                 'longitude': longitude,
+                'language': language,
             })
+            
 
             #make a get request to the search view
             url = f'http://127.0.0.1:8080/api/get_city/{city}/'
@@ -128,22 +134,37 @@ class Chromeview(APIView):
                 # Extract latitude and longitude from the selected location
                 latitude = selected_location.get('latitude')
                 longitude = selected_location.get('longitude')
-                # Initialize Chrome WebDriver
+                
+                # Get the language code from the selected location
+                language_code = selected_location.get('language', '')  # Use the language code from the selected location
+                
+                # Initialize Chrome WebDriver with language settings
                 options = webdriver.ChromeOptions()
+                options.add_argument(f'--lang={language_code}')  # Set the desired language code
+                logging.info("Changing language")
                 options.add_argument("--headless")
                 options.add_argument("--no-sandbox")
                 options.add_argument("--disable-dev-shm-usage")
                 options.add_argument("--disable-gpu")
-                with closing(webdriver.Chrome(options=options)) as driver:
-                    #Simulate setting geolocation
-                    self.set_location(latitude, longitude)
-                    #Change browser language settings
-                    self.change_language_settings(driver, 'en')
+                
+                driver = webdriver.Chrome(options=options)
+                try:
+                    # Simulate setting geolocation
+                    self.set_location(driver, latitude, longitude)
+                    logging.info("Changing location")
+                    
                     return Response({"message": "Location set successfully", "latitude": latitude, "longitude": longitude}, status=status.HTTP_200_OK)
+                finally:
+                    driver.quit()
+            else:
+                errors = serializer.errors
+                return Response({"message": "Invalid serializer data", "errors": errors}, status=status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
+            # Handle exceptions and provide meaningful error messages
             return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    def set_location(self, latitude, longitude):
+    def set_location(self, driver, latitude, longitude):
         try:
             self.loop_connected()  # Check internet connection
 
@@ -158,69 +179,54 @@ class Chromeview(APIView):
                 accuracy=100,
             )
 
-            WebDriverWait(self.driver, 15).until(
+            WebDriverWait(driver, 15).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
 
-            body_element = self.driver.find_element(By.TAG_NAME, "body")
+            body_element = driver.find_element(By.TAG_NAME, "body")
             body_text = body_element.text
 
             if "Use precise location" in body_text:
-                self.driver.find_element(By.XPATH, "//a[text()='Use precise location']").click()
-                WebDriverWait(self.driver, 3).until(
+                driver.find_element(By.XPATH, "//a[text()='Use precise location']").click()
+                WebDriverWait(driver, 3).until(
                     EC.presence_of_element_located((By.TAG_NAME, "body"))
                 )
                 print('Location set successfully')
-                return True
             elif "Update location" in body_text:
-                self.driver.find_element(By.XPATH, "//a[text()='Update location']").click()
-                WebDriverWait(self.driver, 3).until(
+                driver.find_element(By.XPATH, "//a[text()='Update location']").click()
+                WebDriverWait(driver, 3).until(
                     EC.presence_of_element_located((By.TAG_NAME, "body"))
                 )
                 print('Location set successfully')
-                return True
             else:
                 print('Send mail')
 
         except NoSuchElementException:  # If page is not loaded properly
             self.loop_connected()
-            self.driver.refresh()
-            WebDriverWait(self.driver, 5).until(
+            driver.refresh()
+            WebDriverWait(driver, 5).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
 
-            body_element = self.driver.find_element(By.TAG_NAME, "body")
+            body_element = driver.find_element(By.TAG_NAME, "body")
             body_text = body_element.text
 
             if "Use precise location" in body_text:
-                self.driver.find_element(By.XPATH, "//a[text()='Use precise location']").click()
-                WebDriverWait(self.driver, 3).until(
+                driver.find_element(By.XPATH, "//a[text()='Use precise location']").click()
+                WebDriverWait(driver, 3).until(
                     EC.presence_of_element_located((By.TAG_NAME, "body"))
                 )
                 print('Location set successfully')
-                return True
             elif "Update location" in body_text:
-                self.driver.find_element(By.XPATH, "//a[text()='Update location']").click()
-                WebDriverWait(self.driver, 3).until(
+                driver.find_element(By.XPATH, "//a[text()='Update location']").click()
+                WebDriverWait(driver, 3).until(
                     EC.presence_of_element_located((By.TAG_NAME, "body"))
                 )
                 print('Location set successfully')
-                return True
             else:
                 print('Send email')  # Send mail
         except Exception as error:
-            print(f'An exception occurred: {error}')
-            return False
-
-
-
-    def change_language_settings(self, driver, language):
-        try:
-            language_link = 'https://www.google.com/?hl='+str(language)#Values such as (en,hi,ta) is given
-            self.driver.get(language_link)#Change the language
-            print('language set successfully')
-        except Exception as e:
-            print(f"Error changing language settings: {str(e)}")
+            raise Exception(f'An exception occurred: {error}')
 
     def separate_alphabets(self, driver, letter):
         try:
