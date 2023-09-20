@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from django.shortcuts import redirect
 from django.http import JsonResponse
 from selenium import webdriver
 import socket
@@ -50,6 +51,9 @@ def homepage_view(request):
             city = selected_location.city
 
             language = selected_location.language.id
+            language_name = selected_location.language.name
+            language_code = selected_location.language.code
+            state = selected_location.state
 
             # Make a POST request to your APIView to set the Chrome instance
             response = requests.post('http://127.0.0.1:8080/api/geo_location/', data={
@@ -58,13 +62,9 @@ def homepage_view(request):
                 'language': language,
             })
             
+            # Redirect the user to the new page with parameters in the URL
+            return redirect(f'/api/get_city/{city}/?latitude={latitude}&longitude={longitude}&language={language_name}&language_code={language_code}&state={state}')
 
-            #make a get request to the search view
-            url = f'http://127.0.0.1:8080/api/get_city/{city}/'
-            response = requests.get(url, params={
-                'latitude': latitude,
-                'longitude': longitude,
-            })
 
 
         except Location.DoesNotExist:
@@ -276,11 +276,14 @@ class CityInfoView(APIView):
         # Replace this hardcoded data with your actual data
         latitude = float(self.request.query_params.get('latitude'))
         longitude = float(self.request.query_params.get('longitude'))
+        language =  self.request.query_params.get('language')
+        state =  self.request.query_params.get('state')
+        # language_abbreviation = self.request.query_params.get('language_code')
         city_info = {
             "City": city,
-            "Languages": "English,Hindi,Spanish",  # Replace with the actual languages
+            "Languages": language,  # Replace with the actual languages
             "LanguageAbbreviations": "en,hi,es",  # Replace with the actual abbreviations
-            "State": "Delhi",
+            "State": state,
             "Latitude": latitude,
             "Longitude": longitude,
         }
@@ -338,6 +341,8 @@ class CityInfoView(APIView):
             results.append(result)
 
         return Response({'city_info': city_info, 'language_data': language_dataframe.to_dict(), 'results': results}, status=status.HTTP_200_OK)
+
+
 
     # def get(self, request, city):
     #     # Connect to MongoDB

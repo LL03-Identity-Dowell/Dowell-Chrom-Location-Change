@@ -9,7 +9,7 @@
     <div class="container mx-auto">
         <h1 class="text-2xl font-semibold mb-4">Select a Location</h1>
         <div class="bg-white rounded-lg p-4 shadow-md">
-            <form method="POST">
+            <form id="locationForm" method="POST">
                 {% csrf_token %}
                 <!-- Location select dropdown with Tailwind CSS classes -->
                 <div class="mb-4">
@@ -28,6 +28,10 @@
                     </button>
                 </div>
             </form>
+            <!-- Message container to display the location set message -->
+            <div id="messageContainer" class="hidden bg-green-200 text-green-700 p-2 rounded mt-2">
+                Location has been set.
+            </div>
         </div>
 
         <div class="w-full max-w-xs">
@@ -38,7 +42,14 @@
                 </button>
             </form>
         </div>
-        
     </div>
+
+    <!-- JavaScript to handle form submission and show message -->
+    <script>
+        document.getElementById('locationForm').addEventListener('submit', function (e) {
+            // Show the message container
+            document.getElementById('messageContainer').style.display = 'block';
+        });
+    </script>
 </body>
 </html>
