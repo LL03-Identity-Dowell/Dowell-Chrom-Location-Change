@@ -21,26 +21,19 @@
                         {% endfor %}
                     </select>
                 </div>
-                <!-- Search button with Tailwind CSS classes -->
+                <!-- Search field with Tailwind CSS classes -->
                 <div class="mb-4">
-                    <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-blue-500">
-                        Set Location
-                    </button>
+                    <input type="text" name="search" class="appearance-none bg-transparent border-none w-full text-gray-700 mr-3 py-1 px-2 leading-tight focus:outline-none" type="text" placeholder="Search..." aria-label="Search">
                 </div>
+                <!-- "Set Location" button to submit the form -->
+                <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-blue-500">
+                    Set Location
+                </button>
             </form>
             <!-- Message container to display the location set message -->
             <div id="messageContainer" class="hidden bg-green-200 text-green-700 p-2 rounded mt-2">
                 Location has been set.
             </div>
-        </div>
-
-        <div class="w-full max-w-xs">
-            <form class="flex items-center border-b border-b-2 border-teal-500 py-2">
-                <input class="appearance-none bg-transparent border-none w-full text-gray-700 mr-3 py-1 px-2 leading-tight focus:outline-none" type="text" placeholder="Search..." aria-label="Search">
-                <button class="bg-blue-500 hover:bg-blue-700 flex-shrink-0 bg-teal-500 hover:bg-teal-700 border-teal-500 hover:border-teal-700 text-sm border-4 text-white py-1 px-2 rounded" type="submit">
-                    Search
-                </button>
-            </form>
         </div>
     </div>
 

@@ -30,7 +30,8 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import NoSuchElementException
-import logging
+import logging,json
+from bs4 import BeautifulSoup
 from django.utils.decorators import method_decorator
 
 
@@ -43,7 +44,7 @@ def homepage_view(request):
     if request.method == 'POST':
         # Deserialize the data using the serializer
         selected_location_id = request.POST.get('location')  # Assuming 'location' is the name of the select input field
-
+        search_content = request.POST.get('search','')
         try:
             selected_location = Location.objects.get(id=selected_location_id)
             latitude = selected_location.latitude
@@ -60,13 +61,12 @@ def homepage_view(request):
                 'latitude': latitude,
                 'longitude': longitude,
                 'language': language,
+                'search_content' : search_content
             })
-            
-            # Redirect the user to the new page with parameters in the URL
-            return redirect(f'/api/get_city/{city}/?latitude={latitude}&longitude={longitude}&language={language_name}&language_code={language_code}&state={state}')
+            # Parse the JSON response from the Chromeview
+            search_results = json.loads(response.text).get('search_results', [])
 
-
-
+            return render(request, 'search_results.html', {'search_results': search_results})
         except Location.DoesNotExist:
             # Handle the case where the selected location doesn't exist
             error_message = "Selected location does not exist."
@@ -82,26 +82,42 @@ def homepage_view(request):
 @method_decorator(csrf_exempt, name='dispatch')
 class Chromeview(APIView):
     def __init__(self):
+        super().__init__()
+        self.driver = None  # Initialize as None in __init__
+
+    def initialize_driver(self, language_code, longitude, latitude):
+        options = webdriver.ChromeOptions()
         self.hostname = "one.one.one.one"
         self.user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.22 Safari/537.36'
-        self.options = Options()
-        self.options.add_argument(f'user-agent={self.user_agent}')
-        self.options.add_argument("--disable-renderer-backgrounding")
-        self.options.add_argument("--disable-dev-shm-usage")
-        self.options.add_argument("--disable-gpu")
-        self.options.add_argument("--disable-features=VizDisplayCompositor")
-        self.options.add_argument("--headless")
-        self.options.add_argument("--no-sandbox")
+
+        options.add_argument(f'user-agent={self.user_agent}')
+        options.add_argument("--disable-renderer-backgrounding")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--disable-features=VizDisplayCompositor")
+        options.add_argument("--headless")
+        options.add_argument(f'--lang={language_code}')  # Set the desired language code
+        logging.info("Changing language")
+        options.add_argument("--no-sandbox")
+
         # Call find_free_port without arguments
         self.port_number = self.find_free_port()
         self.port_url = f"--remote-debugging-port={self.port_number}"
-        self.options.add_argument(self.port_url)
-        self.driver = webdriver.Chrome( options=self.options)
+        options.add_argument(self.port_url)
+
+        # Create the WebDriver instance with the configured options
+        self.driver = webdriver.Chrome(options=options)
+        
         self.url = f"http://localhost:{self.port_number}"
         self.dev_tools = pychrome.Browser(url=self.url)
         self.tab = self.dev_tools.new_tab()
         self.tab.start()
         self.driver.get("https://www.google.com")
+
+        # Simulate setting geolocation
+        self.set_location(self.driver, latitude, longitude)
+        logging.info("Changing location")
+
 
     def is_connected(self):
         try:
@@ -129,6 +145,8 @@ class Chromeview(APIView):
 
     def post(self, request, format=None):
         try:
+            search_content = request.data.get('search_content', '')  # Access search_content as a string
+            logging.info(f"Received search_content: {search_content}")
             # Deserialize the data using the serializer
             serializer = LocationSerializer(data=request.data)
             if serializer.is_valid():
@@ -141,133 +159,69 @@ class Chromeview(APIView):
                 # Get the language code from the selected location
                 language_code = selected_location.get('language', '')  # Use the language code from the selected location
                 
-                # Initialize Chrome WebDriver with language settings
-                options = webdriver.ChromeOptions()
-                options.add_argument(f'--lang={language_code}')  # Set the desired language code
-                logging.info("Changing language")
-                options.add_argument("--headless")
-                options.add_argument("--no-sandbox")
-                options.add_argument("--disable-dev-shm-usage")
-                options.add_argument("--disable-gpu")
-                
-                driver = webdriver.Chrome(options=options)
+               # Initialize Chrome WebDriver if not already initialized
+                if not self.driver:
+                    self.initialize_driver(language_code, latitude, longitude)
                 try:
-                    # Simulate setting geolocation
-                    self.set_location(driver, latitude, longitude)
-                    logging.info("Changing location")
-                    
-                    return Response({"message": "Location set successfully", "latitude": latitude, "longitude": longitude}, status=status.HTTP_200_OK)
+                    # Perform the search and get the search results
+                    search_results = self.perform_search(self.driver, language_code, latitude, longitude, search_content)
+                    logging.info("Performing search")
+                    return Response({"message": "Location set successfully", 'search_results': search_results,"latitude": latitude, "longitude": longitude}, status=status.HTTP_200_OK)
+                
                 finally:
-                    driver.quit()
+                    self.driver.quit()
             else:
                 errors = serializer.errors
                 return Response({"message": "Invalid serializer data", "errors": errors}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             # Handle exceptions and provide meaningful error messages
+            logging.error(f"Error processing request: {str(e)}")
             return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def set_location(self, driver, latitude, longitude):
-        try:
-            self.loop_connected()  # Check internet connection
+        driver.execute_cdp_cmd("Emulation.setGeolocationOverride", {
+            "latitude": latitude,
+            "longitude": longitude,
+            "accuracy": 100  # Optional: Set the accuracy level
+        })
+        
+    def perform_search(self, driver, language_code, latitude, longitude, search_content):
+        google_url = "https://www.google.com"
+        # Open Google and perform a search
+        driver.get(google_url)
+        # Set the language and location after navigating to Google
+        self.set_location(driver, latitude, longitude)
+        driver.execute_script(f"window.navigator.language = '{language_code}';")
+        search_box = driver.find_element(By.NAME, "q")
+        search_box.send_keys(search_content)
+        search_box.submit()
+        driver.implicitly_wait(5)
+        # Get the HTML source of the search results page
+        search_results_page = driver.page_source
+        # Parse the HTML source with BeautifulSoup
+        soup = BeautifulSoup(search_results_page, 'html.parser')
+        # Find and extract the search results
+        search_results = []
+        search_result_elements = soup.find_all("div", class_="tF2Cxc")
+        for result_element in search_result_elements:
+            title = result_element.find("h3").text
+            link = result_element.find("a")["href"]
+            search_results.append({"title": title, "link": link})
+        # Close the WebDriver when done
+        # Return the search results as a list of dictionaries
+        return search_results
 
-            self.tab.call_method("Network.enable", _timeout=20)
-            self.tab.call_method("Browser.grantPermissions", permissions=["geolocation"])
+# def search_view(requests,request):
+#     if request.method == 'POST':
+#             search_content = request.POST.get('search', '')
+            
+#             chrome_instance = Chromeview()
 
-            # Set geolocation override
-            self.tab.call_method(
-                "Emulation.setGeolocationOverride",
-                latitude=latitude,
-                longitude=longitude,
-                accuracy=100,
-            )
+#             search_results = chrome_instance.perform_search(chrome_instance.driver, search_content)
 
-            WebDriverWait(driver, 15).until(
-                EC.presence_of_element_located((By.TAG_NAME, "body"))
-            )
-
-            body_element = driver.find_element(By.TAG_NAME, "body")
-            body_text = body_element.text
-
-            if "Use precise location" in body_text:
-                driver.find_element(By.XPATH, "//a[text()='Use precise location']").click()
-                WebDriverWait(driver, 3).until(
-                    EC.presence_of_element_located((By.TAG_NAME, "body"))
-                )
-                print('Location set successfully')
-            elif "Update location" in body_text:
-                driver.find_element(By.XPATH, "//a[text()='Update location']").click()
-                WebDriverWait(driver, 3).until(
-                    EC.presence_of_element_located((By.TAG_NAME, "body"))
-                )
-                print('Location set successfully')
-            else:
-                print('Send mail')
-
-        except NoSuchElementException:  # If page is not loaded properly
-            self.loop_connected()
-            driver.refresh()
-            WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located((By.TAG_NAME, "body"))
-            )
-
-            body_element = driver.find_element(By.TAG_NAME, "body")
-            body_text = body_element.text
-
-            if "Use precise location" in body_text:
-                driver.find_element(By.XPATH, "//a[text()='Use precise location']").click()
-                WebDriverWait(driver, 3).until(
-                    EC.presence_of_element_located((By.TAG_NAME, "body"))
-                )
-                print('Location set successfully')
-            elif "Update location" in body_text:
-                driver.find_element(By.XPATH, "//a[text()='Update location']").click()
-                WebDriverWait(driver, 3).until(
-                    EC.presence_of_element_located((By.TAG_NAME, "body"))
-                )
-                print('Location set successfully')
-            else:
-                print('Send email')  # Send mail
-        except Exception as error:
-            raise Exception(f'An exception occurred: {error}')
-
-    def separate_alphabets(self, driver, letter):
-        try:
-            # Find the search field by its NAME attribute
-            search_field = driver.find_element(By.NAME, "q")
-            autocomplete_list = []  # Initialize a list to store autocomplete suggestions
-            # Enter the letter in the search bar
-            search_field.send_keys(str(letter))
-            # Wait for autocomplete suggestions to appear (up to 10 seconds)
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//*/ul/li/div/div[2]/div[1]")))
-            for loop in range(1, 11):  # Iterate through the first 10 autocomplete suggestions
-                try:
-                    # Find and extract the text of the autocomplete suggestion
-                    li_item = driver.find_element(By.XPATH, f"//*/ul/li[{loop}]/div/div[2]/div[1]").text
-                    autocomplete_list.append(li_item)  # Append the suggestion to the list
-                except NoSuchElementException:
-                    # If no more suggestions are found, append None and exit the loop
-                    autocomplete_list.append(None)
-                    break
-            return autocomplete_list  # Return the list of autocomplete suggestions
-        except Exception as e:
-            print(f"Error separating alphabets: {str(e)}")  # Handle and log any exceptions
-
-
-    def retrieving_alphabets(self, driver, alphabets):
-        try:
-            self.alphabets = alphabets  # Store the provided alphabets
-            self.json_letters = {}  # Initialize an empty dictionary to store results
-            for i in range(len(self.alphabets)):  # Iterate through each alphabet
-                alphabet = self.alphabets[i]
-                # Call the separate_alphabets function to retrieve autocomplete results
-                autocomplete_results = self.separate_alphabets(driver, alphabet)
-                # Store the results in the dictionary with the alphabet as the key
-                self.json_letters[alphabet] = autocomplete_results
-            return self.json_letters  # Return the dictionary containing autocomplete results
-
-        except Exception as e:
-            print(f"Error retrieving alphabets: {str(e)}")  # Handle and log any exceptions
+#             return render(request, 'search_results.html', {'search_results': search_results})
+#     return render(request,'search.html',{})
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -278,11 +232,11 @@ class CityInfoView(APIView):
         longitude = float(self.request.query_params.get('longitude'))
         language =  self.request.query_params.get('language')
         state =  self.request.query_params.get('state')
-        # language_abbreviation = self.request.query_params.get('language_code')
+        language_abbreviation = self.request.query_params.get('language_code')
         city_info = {
             "City": city,
             "Languages": language,  # Replace with the actual languages
-            "LanguageAbbreviations": "en,hi,es",  # Replace with the actual abbreviations
+            "LanguageAbbreviations": language_abbreviation,  # Replace with the actual abbreviations
             "State": state,
             "Latitude": latitude,
             "Longitude": longitude,
