@@ -30,7 +30,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import NoSuchElementException
-import logging,json
+import logging,json,tempfile
 from bs4 import BeautifulSoup
 from django.utils.decorators import method_decorator
 
@@ -41,187 +41,90 @@ logging.basicConfig(level=logging.INFO)
 @csrf_exempt
 def homepage_view(request):
     serializer = LocationSerializer(Location.objects.all(), many=True)
+    # Initialize search_results as an empty list
+    search_results = []
     if request.method == 'POST':
         # Deserialize the data using the serializer
         selected_location_id = request.POST.get('location')  # Assuming 'location' is the name of the select input field
         search_content = request.POST.get('search','')
         try:
             selected_location = Location.objects.get(id=selected_location_id)
-            latitude = selected_location.latitude
-            longitude = selected_location.longitude
-            city = selected_location.city
-
-            language = selected_location.language.id
-            language_name = selected_location.language.name
-            language_code = selected_location.language.code
-            state = selected_location.state
-
+            city = selected_location.name
             # Make a POST request to your APIView to set the Chrome instance
             response = requests.post('http://127.0.0.1:8080/api/geo_location/', data={
-                'latitude': latitude,
-                'longitude': longitude,
-                'language': language,
+                "city":city,
                 'search_content' : search_content
             })
-            # Parse the JSON response from the Chromeview
-            search_results = json.loads(response.text).get('search_results', [])
-
-            return render(request, 'search_results.html', {'search_results': search_results})
+            if response.status_code == 200:
+                # Parse the JSON response from the Chromeview
+                response_data = response.json()
+                search_results = response_data.get('search_results', [])
+                logging.info("Received results")
         except Location.DoesNotExist:
             # Handle the case where the selected location doesn't exist
             error_message = "Selected location does not exist."
             return render(request, 'index.html', {'serializer': serializer, 'error_message': error_message})
-
     else:
         # Create a serializer to render the form in the template
         locations = Location.objects.all()
         serializer = LocationSerializer(locations, many=True)
 
-    return render(request, 'index.html', {'serializer': serializer})
+    return render(request, 'index.html',{'serializer': serializer, 'search_results': search_results})
     
+
 @method_decorator(csrf_exempt, name='dispatch')
 class Chromeview(APIView):
-    def __init__(self):
-        super().__init__()
-        self.driver = None  # Initialize as None in __init__
-
-    def initialize_driver(self, language_code, longitude, latitude):
-        options = webdriver.ChromeOptions()
-        self.hostname = "one.one.one.one"
-        self.user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.22 Safari/537.36'
-
-        options.add_argument(f'user-agent={self.user_agent}')
-        options.add_argument("--disable-renderer-backgrounding")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--disable-features=VizDisplayCompositor")
-        options.add_argument("--headless")
-        options.add_argument(f'--lang={language_code}')  # Set the desired language code
-        logging.info("Changing language")
-        options.add_argument("--no-sandbox")
-
-        # Call find_free_port without arguments
-        self.port_number = self.find_free_port()
-        self.port_url = f"--remote-debugging-port={self.port_number}"
-        options.add_argument(self.port_url)
-
-        # Create the WebDriver instance with the configured options
-        self.driver = webdriver.Chrome(options=options)
-        
-        self.url = f"http://localhost:{self.port_number}"
-        self.dev_tools = pychrome.Browser(url=self.url)
-        self.tab = self.dev_tools.new_tab()
-        self.tab.start()
-        self.driver.get("https://www.google.com")
-
-        # Simulate setting geolocation
-        self.set_location(self.driver, latitude, longitude)
-        logging.info("Changing location")
-
-
-    def is_connected(self):
-        try:
-            response = requests.get(f"http://{self.hostname}", timeout=2)
-            response.raise_for_status()
-            return True
-        except requests.RequestException:
-            return False
-        
-    def loop_connected(self):#This function is called to check the internet connection thruoghout the code which will call is_connected() 
-        if self.is_connected(): #If internet connection is there, it will return True and remaining code will continue
-            return True
-        else:#If false, it will wait 10 seconds for internet connection and try again
-            print("Internet Disabled")
-            time.sleep(10)
-            self.loop_connected()#Call itself again
-    def find_free_port(self):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            sock.bind(("localhost", 0))
-            _, port = sock.getsockname()
-            return port
-        finally:
-            sock.close()
-
     def post(self, request, format=None):
-        try:
-            search_content = request.data.get('search_content', '')  # Access search_content as a string
-            logging.info(f"Received search_content: {search_content}")
-            # Deserialize the data using the serializer
-            serializer = LocationSerializer(data=request.data)
-            if serializer.is_valid():
-                selected_location = serializer.validated_data
+        search_content = request.data.get('search_content', '')  # Access search_content as a string
+        # Extract the selected location
+        city = request.data.get('city')
+        logging.info(f"Received search_content: {search_content}")
+        # Deserialize the data using the serializer
+        serializer = LocationSerializer(data=request.data)
+        if serializer.is_valid():
+            selected_location = serializer.validated_data
+            # Perform the search and get the search results
+            search_results = self.perform_search(city,search_content)
+            logging.info("Performing search")
+            # Return the search results as a JSON response
+            return Response({"message": "Location set successfully", 'search_results': search_results}, status=status.HTTP_200_OK)
+
+    # Perform the search feature in our app
+    def perform_search(self, city, search_content):
+         # Replace with your API key and search engine ID
+        api_key = "AIzaSyAC8BqESNHdzm4vK34C6oBboT56ndJJ3K4"
+        search_engine_id = "d4fa2dccaadf7497a"
+        # Get the location from the query parameters (e.g., /search/?location=New+York%2C+NY)
+        location = city
+        print(location)
+        # Get the search query from the query parameters
+        query = search_content + "in" + location
+        if not location or not query:
+            return JsonResponse({"error": "Both 'location' and 'query' parameters are required."}, status=400)
+        # Construct the URL for the Google Custom Search API
+        url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={search_engine_id}&q={query}&gl={location}"
+        logging.info(f"API URL: {url}")  # Add this line to print the URL
+        # Make the API request
+        response = requests.get(url)
+        # Check if the request was successful
+        if response.status_code == 200:
+            try:
+                # Parse the JSON response
+                json_response = response.json()
+                # Extract the "items" field, which contains the search results
+                items = json_response.get("items", [])
+                # Extract the "title" and "link" fields for each search result
+                search_results = [{"title": item["title"], "link": item["link"]} for item in items]
                 
-                # Extract latitude and longitude from the selected location
-                latitude = selected_location.get('latitude')
-                longitude = selected_location.get('longitude')
-                
-                # Get the language code from the selected location
-                language_code = selected_location.get('language', '')  # Use the language code from the selected location
-                
-               # Initialize Chrome WebDriver if not already initialized
-                if not self.driver:
-                    self.initialize_driver(language_code, latitude, longitude)
-                try:
-                    # Perform the search and get the search results
-                    search_results = self.perform_search(self.driver, language_code, latitude, longitude, search_content)
-                    logging.info("Performing search")
-                    return Response({"message": "Location set successfully", 'search_results': search_results,"latitude": latitude, "longitude": longitude}, status=status.HTTP_200_OK)
-                
-                finally:
-                    self.driver.quit()
-            else:
-                errors = serializer.errors
-                return Response({"message": "Invalid serializer data", "errors": errors}, status=status.HTTP_400_BAD_REQUEST)
+                # Return the search results as a list of dictionaries
+                return search_results
+            except Exception as e:
+                # Handle any exceptions that may occur during JSON parsing or data extraction
+                return JsonResponse({"error": str(e)}, status=500)
+        else:
+            return JsonResponse({"error": "Google Custom Search API request failed."}, status=response.status_code)
 
-        except Exception as e:
-            # Handle exceptions and provide meaningful error messages
-            logging.error(f"Error processing request: {str(e)}")
-            return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    def set_location(self, driver, latitude, longitude):
-        driver.execute_cdp_cmd("Emulation.setGeolocationOverride", {
-            "latitude": latitude,
-            "longitude": longitude,
-            "accuracy": 100  # Optional: Set the accuracy level
-        })
-        
-    def perform_search(self, driver, language_code, latitude, longitude, search_content):
-        google_url = "https://www.google.com"
-        # Open Google and perform a search
-        driver.get(google_url)
-        # Set the language and location after navigating to Google
-        self.set_location(driver, latitude, longitude)
-        driver.execute_script(f"window.navigator.language = '{language_code}';")
-        search_box = driver.find_element(By.NAME, "q")
-        search_box.send_keys(search_content)
-        search_box.submit()
-        driver.implicitly_wait(5)
-        # Get the HTML source of the search results page
-        search_results_page = driver.page_source
-        # Parse the HTML source with BeautifulSoup
-        soup = BeautifulSoup(search_results_page, 'html.parser')
-        # Find and extract the search results
-        search_results = []
-        search_result_elements = soup.find_all("div", class_="tF2Cxc")
-        for result_element in search_result_elements:
-            title = result_element.find("h3").text
-            link = result_element.find("a")["href"]
-            search_results.append({"title": title, "link": link})
-        # Close the WebDriver when done
-        # Return the search results as a list of dictionaries
-        return search_results
-
-# def search_view(requests,request):
-#     if request.method == 'POST':
-#             search_content = request.POST.get('search', '')
-            
-#             chrome_instance = Chromeview()
-
-#             search_results = chrome_instance.perform_search(chrome_instance.driver, search_content)
-
-#             return render(request, 'search_results.html', {'search_results': search_results})
-#     return render(request,'search.html',{})
 
 
 @method_decorator(csrf_exempt, name='dispatch')
