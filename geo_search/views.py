@@ -47,13 +47,15 @@ def homepage_view(request):
         # Deserialize the data using the serializer
         selected_location_id = request.POST.get('location')  # Assuming 'location' is the name of the select input field
         search_content = request.POST.get('search','')
+        num_results = request.POST.get('num_results')
         try:
             selected_location = Location.objects.get(id=selected_location_id)
             city = selected_location.name
             # Make a POST request to your APIView to set the Chrome instance
             response = requests.post('http://127.0.0.1:8080/api/geo_location/', data={
                 "city":city,
-                'search_content' : search_content
+                'search_content' : search_content,
+                'num_results':num_results
             })
             if response.status_code == 200:
                 # Parse the JSON response from the Chromeview
@@ -76,6 +78,8 @@ def homepage_view(request):
 class Chromeview(APIView):
     def post(self, request, format=None):
         search_content = request.data.get('search_content', '')  # Access search_content as a string
+        num_results = request.data.get('num_results')
+
         # Extract the selected location
         city = request.data.get('city')
         logging.info(f"Received search_content: {search_content}")
@@ -84,45 +88,63 @@ class Chromeview(APIView):
         if serializer.is_valid():
             selected_location = serializer.validated_data
             # Perform the search and get the search results
-            search_results = self.perform_search(city,search_content)
+            search_results = self.perform_search(city,search_content,num_results)
             logging.info("Performing search")
             # Return the search results as a JSON response
             return Response({"message": "Location set successfully", 'search_results': search_results}, status=status.HTTP_200_OK)
 
     # Perform the search feature in our app
-    def perform_search(self, city, search_content):
-         # Replace with your API key and search engine ID
+    def perform_search(self, city, search_content, num_results):
+        # Replace with your API key and search engine ID
         api_key = "AIzaSyAC8BqESNHdzm4vK34C6oBboT56ndJJ3K4"
         search_engine_id = "d4fa2dccaadf7497a"
         # Get the location from the query parameters (e.g., /search/?location=New+York%2C+NY)
         location = city
         print(location)
         # Get the search query from the query parameters
-        query = search_content + "in" + location
+        query = search_content + " in " + location
         if not location or not query:
             return JsonResponse({"error": "Both 'location' and 'query' parameters are required."}, status=400)
-        # Construct the URL for the Google Custom Search API
-        url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={search_engine_id}&q={query}&gl={location}"
-        logging.info(f"API URL: {url}")  # Add this line to print the URL
-        # Make the API request
-        response = requests.get(url)
-        # Check if the request was successful
-        if response.status_code == 200:
-            try:
-                # Parse the JSON response
-                json_response = response.json()
-                # Extract the "items" field, which contains the search results
-                items = json_response.get("items", [])
-                # Extract the "title" and "link" fields for each search result
-                search_results = [{"title": item["title"], "link": item["link"]} for item in items]
-                
-                # Return the search results as a list of dictionaries
-                return search_results
-            except Exception as e:
-                # Handle any exceptions that may occur during JSON parsing or data extraction
-                return JsonResponse({"error": str(e)}, status=500)
-        else:
-            return JsonResponse({"error": "Google Custom Search API request failed."}, status=response.status_code)
+        
+        # Initialize variables for pagination
+        start_index = 1
+        total_results = []
+        
+        # Convert num_results to an integer
+        num_results = int(num_results)
+        # Continue fetching results until we have the desired number or there are no more results
+        while len(total_results) < num_results:
+            # Calculate the number of results to fetch in this iteration (maximum of 10)
+            results_to_fetch = min(num_results - len(total_results), 10)
+            # Construct the URL for the Google Custom Search API with pagination
+            url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={search_engine_id}&q={query}&gl={location}&num={results_to_fetch}&start={start_index}"
+            logging.info(f"API URL: {url}")  # Add this line to print the URL
+            # Make the API request
+            response = requests.get(url)
+            # Check if the request was successful
+            if response.status_code == 200:
+                try:
+                    # Parse the JSON response
+                    json_response = response.json()
+                    # Extract the "items" field, which contains the search results
+                    items = json_response.get("items", [])
+                    # Extract the "title" and "link" fields for each search result
+                    search_results = [{"title": item["title"], "link": item["link"]} for item in items]
+                    # Add the results to the total_results list
+                    total_results.extend(search_results)
+                    # If there are no more results, break out of the loop
+                    if len(search_results) < results_to_fetch:
+                        break
+                    # Increment the start index for the next pagination
+                    start_index += results_to_fetch
+                except Exception as e:
+                    # Handle any exceptions that may occur during JSON parsing or data extraction
+                    return JsonResponse({"error": str(e)}, status=500)
+            else:
+                return JsonResponse({"error": "Google Custom Search API request failed."}, status=response.status_code)
+        # Return the search results as a list of dictionaries
+        return total_results
+
 
 
 
