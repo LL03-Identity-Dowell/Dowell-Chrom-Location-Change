@@ -14,7 +14,7 @@
                 <!-- Location select dropdown with Tailwind CSS classes -->
                 <div class="mb-4">
                     <label for="location" class="block text-gray-700">Select a location</label>
-                    <select name="location" id="location" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500">
+                    <select name="location" id="location" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" required>
                         <option value="" disabled selected>Select a location</option>
                         {% for location in serializer.data %}
                             <option value="{{ location.id }}">{{ location.name }}</option>
@@ -22,18 +22,18 @@
                     </select>
                 </div>
                 <div class="mb-4">
-                    <input type="text" name="search" class="appearance-none bg-transparent border-none w-full text-gray-700 mr-3 py-1 px-2 leading-tight focus:outline-none" type="text" placeholder="Search..." aria-label="Search">
+                    <input type="text" name="search" class="appearance-none bg-transparent border-none w-full text-gray-700 mr-3 py-1 px-2 leading-tight focus:outline-none" type="text" placeholder="Search..." aria-label="Search" required>
                 </div>
                 <!-- Number of results input with Tailwind CSS classes -->
                 <div class="mb-4">
                     <label for="numResults" class="block text-gray-700">Number of Results</label>
-                    <input type="number" name="num_results" id="numResults" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500">
+                    <input type="number" name="num_results" id="numResults" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" required>
                 </div>
                 <!-- "Set Location" button to submit the form -->
                 <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-blue-500">
                     Search
                 </button>
-            </form>
+            </form>            
             <!-- Message container to display the location set message -->
             <div id="messageContainer" class="hidden bg-green-200 text-green-700 p-2 rounded mt-2">
                 Location has been set.
