@@ -37,41 +37,50 @@ from django.utils.decorators import method_decorator
 
 
 logging.basicConfig(level=logging.INFO)
-
 @csrf_exempt
 def homepage_view(request):
     serializer = LocationSerializer(Location.objects.all(), many=True)
-    # Initialize search_results as an empty list
+    # Initialize as a list
     search_results = []
+    
     if request.method == 'POST':
         # Deserialize the data using the serializer
-        selected_location_id = request.POST.get('location')  # Assuming 'location' is the name of the select input field
-        search_content = request.POST.get('search','')
+        selected_location_ids = request.POST.getlist('location')  # Get a list of selected location IDs
+        search_content = request.POST.get('search', '')
         num_results = request.POST.get('num_results')
-        try:
-            selected_location = Location.objects.get(id=selected_location_id)
-            city = selected_location.name
-            # Make a POST request to your APIView to set the Chrome instance
-            response = requests.post('http://127.0.0.1:8080/api/geo_location/', data={
-                "city":city,
-                'search_content' : search_content,
-                'num_results':num_results
-            })
-            if response.status_code == 200:
-                # Parse the JSON response from the Chromeview
-                response_data = response.json()
-                search_results = response_data.get('search_results', [])
-                logging.info("Received results")
-        except Location.DoesNotExist:
-            # Handle the case where the selected location doesn't exist
-            error_message = "Selected location does not exist."
-            return render(request, 'index.html', {'serializer': serializer, 'error_message': error_message})
+        
+        for location_id in selected_location_ids:
+            try:
+                selected_location = Location.objects.get(id=location_id)
+                city = selected_location.name
+                # Make a POST request to your APIView to set the Chrome instance
+                response = requests.post('http://127.0.0.1:8080/api/geo_location/', data={
+                    "city": city,
+                    'search_content': search_content,
+                    'num_results': num_results
+                })
+                if response.status_code == 200:
+                    # Parse the JSON response from the Chromeview
+                    # Inside your loop for multiple locations
+                    response_data = response.json()
+                    search_results.append({"city": city, "results": response_data.get('search_results', [])})
+                    logging.info(f"Received results for {city}")
+                else:
+                    # Handle the case where the API request failed
+                    error_message = f"API request for {city} failed."
+                    return render(request, 'index.html', {'serializer': serializer, 'error_message': error_message})
+            except Location.DoesNotExist:
+                # Handle the case where the selected location doesn't exist
+                error_message = f"Selected location with ID {location_id} does not exist."
+                return render(request, 'index.html', {'serializer': serializer, 'error_message': error_message})
+
     else:
         # Create a serializer to render the form in the template
         locations = Location.objects.all()
         serializer = LocationSerializer(locations, many=True)
 
-    return render(request, 'index.html',{'serializer': serializer, 'search_results': search_results})
+    return render(request, 'index.html', {'serializer': serializer, 'search_results': search_results})
+
     
 
 @method_decorator(csrf_exempt, name='dispatch')

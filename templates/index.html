@@ -4,6 +4,8 @@
     <title>Location Selection</title>
     <!-- Add Tailwind CSS CDN -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Include Select2 CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-100 p-8">
     <div class="container mx-auto">
@@ -11,11 +13,10 @@
         <div class="bg-white rounded-lg p-4 shadow-md">
             <form id="locationForm" method="POST">
                 {% csrf_token %}
-                <!-- Location select dropdown with Tailwind CSS classes -->
+                <!-- Location select dropdown with Select2 -->
                 <div class="mb-4">
-                    <label for="location" class="block text-gray-700">Select a location</label>
-                    <select name="location" id="location" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" required>
-                        <option value="" disabled selected>Select a location</option>
+                    <label for="location" class="block text-gray-700">Select location(s)</label>
+                    <select name="location" id="location" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" multiple>
                         {% for location in serializer.data %}
                             <option value="{{ location.id }}">{{ location.name }}</option>
                         {% endfor %}
@@ -40,23 +41,35 @@
             </div>
         </div>
     </div>
-    {% if search_results %}
+    {% for location_results in search_results %}
     <div class="container mx-auto p-4">
-        <h1 class="text-3xl font-semibold mb-4">Search Results</h1>
+        <h1 class="text-3xl font-semibold mb-4">{{ location_results.city }} Results</h1>
         <ul class="list-disc list-inside">
-            {% for result in search_results %}
-                <li class="mb-2">
-                    <a href="{{ result.link }}" target="_blank" class="text-blue-500 hover:underline">{{ result.title }}</a>
-                </li>
+            {% for result in location_results.results %}
+            <li class="mb-2">
+                <a href="{{ result.link }}" target="_blank" class="text-blue-500 hover:underline">{{ result.title }}</a>
+            </li>
             {% endfor %}
         </ul>
     </div>
-    {% endif %}
+    {% endfor %}
+
+    <!-- Include jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Include Select2 JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+
     <!-- JavaScript to handle form submission and show message -->
     <script>
         document.getElementById('locationForm').addEventListener('submit', function (e) {
             // Show the message container
             document.getElementById('messageContainer').style.display = 'block';
+        });
+    </script>
+    <!-- Initialize Select2 -->
+    <script>
+        $(document).ready(function() {
+            $('#location').select2();
         });
     </script>
 </body>
