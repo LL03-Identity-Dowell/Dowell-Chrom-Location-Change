@@ -23,7 +23,7 @@
                     </select>
                 </div>
                 <div class="mb-4">
-                    <input type="text" name="search" class="appearance-none bg-transparent border-none w-full text-gray-700 mr-3 py-1 px-2 leading-tight focus:outline-none" type="text" placeholder="Search..." aria-label="Search" required>
+                    <input type="text" name="search" id="search" class="appearance-none bg-transparent border-none w-full text-gray-700 mr-3 py-1 px-2 leading-tight focus:outline-none" type="text" placeholder="Search..." aria-label="Search" required>
                 </div>
                 <!-- Number of results input with Tailwind CSS classes -->
                 <div class="mb-4">
@@ -33,6 +33,10 @@
                 <!-- "Set Location" button to submit the form -->
                 <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-blue-500">
                     Search
+                </button>
+                <!-- "Clear" button to clear the form -->
+                <button type="button" id="clearButton" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-red-500">
+                    Clear
                 </button>
             </form>            
             <!-- Message container to display the location set message -->
@@ -64,13 +68,63 @@
         document.getElementById('locationForm').addEventListener('submit', function (e) {
             // Show the message container
             document.getElementById('messageContainer').style.display = 'block';
+            
+            // Store the form values in local storage
+            // Store the selected location values in local storage
+            var selectedLocations = $('#location').val();
+            localStorage.setItem('selectedLocations', JSON.stringify(selectedLocations));
+            localStorage.setItem('search', document.getElementById('search').value);
+            localStorage.setItem('numResults', document.getElementById('numResults').value);
         });
     </script>
     <!-- Initialize Select2 -->
     <script>
         $(document).ready(function() {
+            // Initialize Select2
             $('#location').select2();
+
+            // Prevent Select2 from clearing selections on form submit
+            $('#location').on('select2:close', function (e) {
+                e.preventDefault();
+            });
+
+            // Retrieve and populate selected locations from local storage
+            var selectedLocations = JSON.parse(localStorage.getItem('selectedLocations'));
+            if (selectedLocations) {
+                $('#location').val(selectedLocations).trigger('change');
+            }
         });
     </script>
+    <!-- JavaScript to populate form fields from local storage on page load -->
+    <script>
+        window.addEventListener('load', function() {
+            // Populate the form fields from local storage
+            document.getElementById('search').value = localStorage.getItem('search') || '';
+            document.getElementById('numResults').value = localStorage.getItem('numResults') || '';
+        });
+    </script>
+    <!-- JavaScript to handle clearing the form and local storage -->
+<script>
+    document.getElementById('clearButton').addEventListener('click', function (e) {
+        // Clear the entire form by resetting it
+        document.getElementById('locationForm').reset();
+        // Clear the Select2 dropdown selection
+        $('#location').val([]).trigger('change');
+        // Hide the message container
+        document.getElementById('messageContainer').style.display = 'none';
+
+        // Clear the stored values in local storage
+        localStorage.removeItem('search');
+        localStorage.removeItem('numResults');
+        localStorage.removeItem('selectedLocations');
+    });
+
+    // Clear local storage when the page is loaded
+    window.addEventListener('load', function() {
+        localStorage.removeItem('search');
+        localStorage.removeItem('numResults');
+        localStorage.removeItem('selectedLocations');
+    });
+</script>
 </body>
 </html>
