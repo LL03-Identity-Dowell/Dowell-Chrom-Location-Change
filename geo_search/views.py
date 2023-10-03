@@ -32,6 +32,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import NoSuchElementException
 import logging,json,tempfile
 from bs4 import BeautifulSoup
+from django.conf import settings
 from django.utils.decorators import method_decorator
 
 
@@ -105,8 +106,8 @@ class Chromeview(APIView):
     # Perform the search feature in our app
     def perform_search(self, city, search_content, num_results):
         # Replace with your API key and search engine ID
-        api_key = "AIzaSyAC8BqESNHdzm4vK34C6oBboT56ndJJ3K4"
-        search_engine_id = "d4fa2dccaadf7497a"
+        api_key = settings.GOOGLE_API_KEY  # Use the variable defined in your Django settings
+        search_engine_id = settings.SEARCH_ENGINE_ID  # Use the variable defined in your Django settings
         # Get the location from the query parameters (e.g., /search/?location=New+York%2C+NY)
         location = city
         print(location)

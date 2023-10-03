@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,7 +27,9 @@ SECRET_KEY = 'django-insecure-$o7a&r%rqvt6zhekb+3sh@bev9(5!_6b)v9j*at!vr)uc7(0%!
 DEBUG = True
 
 ALLOWED_HOSTS = ['74.50.67.58']
-
+# API keys
+GOOGLE_API_KEY = config('GOOGLE_API_KEY')
+SEARCH_ENGINE_ID = config('SEARCH_ENGINE_ID')
 
 # Application definition
 
