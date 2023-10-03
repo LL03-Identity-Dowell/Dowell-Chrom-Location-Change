@@ -45,18 +45,33 @@
             </div>
         </div>
     </div>
-    {% for location_results in search_results %}
-    <div class="container mx-auto p-4">
-        <h1 class="text-3xl font-semibold mb-4">{{ location_results.city }} Results</h1>
-        <ul class="list-disc list-inside">
-            {% for result in location_results.results %}
-            <li class="mb-2">
-                <a href="{{ result.link }}" target="_blank" class="text-blue-500 hover:underline">{{ result.title }}</a>
-            </li>
+
+    <!-- Tabs for displaying results -->
+    <div class="container mx-auto mt-8">
+        <div class="flex">
+            {% for location_results in search_results %}
+                <input type="radio" name="tabs" id="{{ location_results.city }}" class="hidden">
+                <label for="{{ location_results.city }}" class="cursor-pointer bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 rounded-t-lg">
+                    {{ location_results.city }} Results
+                </label>
             {% endfor %}
-        </ul>
+        </div>
+        <div class="bg-white rounded-b-lg p-4 shadow-md">
+            {% for location_results in search_results %}
+                <div id="{{ location_results.city }}-content" class="tab-content hidden">
+                    <div class="container mx-auto p-4">
+                        <ul class="list-disc list-inside">
+                            {% for result in location_results.results %}
+                                <li class="mb-2">
+                                    <a href="{{ result.link }}" target="_blank" class="text-gray-500 hover:underline">{{ result.title }}</a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
     </div>
-    {% endfor %}
 
     <!-- Include jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -104,27 +119,51 @@
         });
     </script>
     <!-- JavaScript to handle clearing the form and local storage -->
-<script>
-    document.getElementById('clearButton').addEventListener('click', function (e) {
-        // Clear the entire form by resetting it
-        document.getElementById('locationForm').reset();
-        // Clear the Select2 dropdown selection
-        $('#location').val([]).trigger('change');
-        // Hide the message container
-        document.getElementById('messageContainer').style.display = 'none';
+    <script>
+        document.getElementById('clearButton').addEventListener('click', function (e) {
+            // Clear the entire form by resetting it
+            document.getElementById('locationForm').reset();
+            // Clear the Select2 dropdown selection
+            $('#location').val([]).trigger('change');
+            // Hide the message container
+            document.getElementById('messageContainer').style.display = 'none';
 
-        // Clear the stored values in local storage
-        localStorage.removeItem('search');
-        localStorage.removeItem('numResults');
-        localStorage.removeItem('selectedLocations');
-    });
+            // Clear the stored values in local storage
+            localStorage.removeItem('search');
+            localStorage.removeItem('numResults');
+            localStorage.removeItem('selectedLocations');
+        });
 
-    // Clear local storage when the page is loaded
-    window.addEventListener('load', function() {
-        localStorage.removeItem('search');
-        localStorage.removeItem('numResults');
-        localStorage.removeItem('selectedLocations');
-    });
-</script>
+        // Clear local storage when the page is loaded
+        window.addEventListener('load', function() {
+            localStorage.removeItem('search');
+            localStorage.removeItem('numResults');
+            localStorage.removeItem('selectedLocations');
+        });
+    </script>
+    <!-- JavaScript for tabbed interface -->
+    <script>
+        // Function to switch tabs
+        function switchTab(tabId) {
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => {
+                tab.style.display = 'none';
+            });
+
+            const selectedTab = document.getElementById(tabId);
+            if (selectedTab) {
+                selectedTab.style.display = 'block';
+            }
+        }
+        // Add click event listeners to tab labels
+        {% for location_results in search_results %}
+            document.getElementById('{{ location_results.city }}').addEventListener('click', function () {
+                switchTab('{{ location_results.city }}-content');
+            });
+        {% endfor %}
+
+        // Show the first tab by default
+        switchTab('{{ search_results.0.city }}-content');
+    </script>
 </body>
 </html>
