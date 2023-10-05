@@ -284,3 +284,4 @@ class CityInfoView(APIView):
 
     #     return Response({"message": "City info updated in MongoDB"})
 
+    
