@@ -138,8 +138,8 @@ class Chromeview(APIView):
                     json_response = response.json()
                     # Extract the "items" field, which contains the search results
                     items = json_response.get("items", [])
-                    # Extract the "title" and "link" fields for each search result
-                    search_results = [{"title": item["title"], "link": item["link"]} for item in items]
+                    # Extract the "title," "link," "snippet," and "pagemap" (which contains images) fields for each search result
+                    search_results = [{"title": item["title"], "link": item["link"], "snippet": item.get("snippet", ""), "images": item.get("pagemap", {}).get("cse_image", [])} for item in items]
                     # Add the results to the total_results list
                     total_results.extend(search_results)
                     # If there are no more results, break out of the loop
