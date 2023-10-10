@@ -3,6 +3,6 @@ from . import views
 
 urlpatterns = [
     path('geo_location/', views.Chromeview.as_view(), name='geolocation'),
-    path('get_city/<str:city>/',views.CityInfoView.as_view(),name='get_city'),
+    path('download_results', views.download_csv,name="download"),
     path('',views.homepage_view,name="home"),
 ]

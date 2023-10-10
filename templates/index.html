@@ -13,15 +13,30 @@
         <div class="bg-white rounded-lg p-4 shadow-md">
             <form id="locationForm" method="POST">
                 {% csrf_token %}
+                <!-- Country select dropdown with Select2 -->
+                <div class="mb-4">
+                    <label for="countries" class="block text-gray-700">Select country(s)</label>
+                    <select name="countries" id="countries" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" multiple>
+                        {% for country in countryserializer.data %}
+                            <option value="{{ country.id }}">{{ country.name }}</option>
+                        {% endfor %}
+                    </select>                    
+                </div>
+
                 <!-- Location select dropdown with Select2 -->
                 <div class="mb-4">
                     <label for="location" class="block text-gray-700">Select location(s)</label>
                     <select name="location" id="location" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" multiple>
-                        {% for location in serializer.data %}
-                            <option value="{{ location.id }}">{{ location.name }}</option>
+                        {% for country in countryserializer.data %}
+                            {% for location in country.locations %}
+                                <option value="{{ location.id }}">{{ location.name }}</option>
+                            {% endfor %}
                         {% endfor %}
                     </select>
                 </div>
+
+                        
+
                 <div class="mb-4">
                     <input type="text" name="search" id="search" class="appearance-none bg-transparent border-none w-full text-gray-700 mr-3 py-1 px-2 leading-tight focus:outline-none" type="text" placeholder="Search..." aria-label="Search" required>
                 </div>
@@ -77,6 +92,10 @@
                             </div>
                         {% endfor %}
                     </div>
+                    <!-- Add a button/link to trigger CSV download -->
+                    <a href="{% url 'download' %}" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-green-500">
+                        Download Search Results as CSV
+                    </a>
                 </div>
             </div>
         {% endfor %}
@@ -97,7 +116,8 @@
 
 
 
-    
+
+
     <!-- Include jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Include Select2 JavaScript -->
@@ -109,32 +129,88 @@
             // Show the message container
             document.getElementById('messageContainer').style.display = 'block';
             
-            // Store the form values in local storage
             // Store the selected location values in local storage
             var selectedLocations = $('#location').val();
             localStorage.setItem('selectedLocations', JSON.stringify(selectedLocations));
+            
+            // Store the selected countries in local storage
+            var selectedCountries = $('#countries').val();
+            localStorage.setItem('selectedCountries', JSON.stringify(selectedCountries));
+
             localStorage.setItem('search', document.getElementById('search').value);
             localStorage.setItem('numResults', document.getElementById('numResults').value);
         });
     </script>
-    <!-- Initialize Select2 -->
+
+    <!-- script for locations based on country -->
     <script>
-        $(document).ready(function() {
-            // Initialize Select2
+        $(document).ready(function () {
+            // Initialize Select2 for countries
+            $('#countries').select2();
+        
+            // Initialize Select2 for locations
             $('#location').select2();
-
-            // Prevent Select2 from clearing selections on form submit
-            $('#location').on('select2:close', function (e) {
-                e.preventDefault();
-            });
-
-            // Retrieve and populate selected locations from local storage
-            var selectedLocations = JSON.parse(localStorage.getItem('selectedLocations'));
-            if (selectedLocations) {
-                $('#location').val(selectedLocations).trigger('change');
+        
+            // Function to retrieve and populate selected countries and locations from local storage
+            function retrieveSelectedValues() {
+                var selectedCountries = JSON.parse(localStorage.getItem('selectedCountries'));
+                var selectedLocations = JSON.parse(localStorage.getItem('selectedLocations'));
+        
+                if (selectedCountries) {
+                    $('#countries').val(selectedCountries).trigger('change');
+                }
+        
+                if (selectedLocations) {
+                    $('#location').val(selectedLocations).trigger('change');
+                }
             }
+        
+            // Create a dictionary to store the locations for each country
+            var countryLocations = {
+                {% for country in countryserializer.data %}
+                "{{ country.id }}": [
+                    {% for location in country.locations %}
+                    { "id": "{{ location.id }}", "name": "{{ location.name }}" },
+                    {% endfor %}
+                ],
+                {% endfor %}
+            };
+        
+            // Function to update the locations dropdown based on selected countries
+            function updateLocationsDropdown() {
+                $('#location').empty(); // Clear the current options
+        
+                // Get the selected country IDs from the countries dropdown
+                var selectedCountryIds = $('#countries').val();
+        
+                // Add locations of selected countries to the locations dropdown
+                selectedCountryIds.forEach(function (countryId) {
+                    var locations = countryLocations[countryId];
+                    if (locations) {
+                        locations.forEach(function (location) {
+                            $('#location').append($('<option>', {
+                                value: location.id,
+                                text: location.name
+                            }));
+                        });
+                    }
+                });
+        
+                // Trigger the change event for the locations dropdown to update Select2
+                $('#location').trigger('change');
+            }
+        
+            // Listen for changes in the countries dropdown
+            $('#countries').on('change', function () {
+                updateLocationsDropdown();
+            });
+        
+            // Initialize the locations dropdown and retrieve selected values
+            updateLocationsDropdown();
+            retrieveSelectedValues();
         });
     </script>
+        
     <!-- JavaScript to populate form fields from local storage on page load -->
     <script>
         window.addEventListener('load', function() {
@@ -156,7 +232,7 @@
             // Clear the stored values in local storage
             localStorage.removeItem('search');
             localStorage.removeItem('numResults');
-            localStorage.removeItem('selectedLocations');
+            localStorage.removeItem('location');
         });
 
         // Clear local storage when the page is loaded

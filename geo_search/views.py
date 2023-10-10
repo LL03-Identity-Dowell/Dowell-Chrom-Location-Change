@@ -3,33 +3,18 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import redirect
 from django.http import JsonResponse
-from selenium import webdriver
-import socket
-import time
-from selenium.webdriver.common.by import By
-import pandas as pd
-import numpy as np
-import datetime
-import time
-from pymongo import MongoClient
+import csv
+from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 import requests
-import pychrome
 from rest_framework import generics, status,viewsets
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from django.shortcuts import render,get_object_or_404
-from .serializers import LocationSerializer,SearchSerializer
-from .models import Location
-from contextlib import closing
+from .serializers import LocationSerializer,CountrySerializer
+from .models import Location,Country
 from django.views.decorators.csrf import csrf_exempt
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.common.exceptions import NoSuchElementException
 import logging,json,tempfile
 from bs4 import BeautifulSoup
 from django.conf import settings
@@ -40,7 +25,7 @@ from django.utils.decorators import method_decorator
 logging.basicConfig(level=logging.INFO)
 @csrf_exempt
 def homepage_view(request):
-    serializer = LocationSerializer(Location.objects.all(), many=True)
+    countryserializer =CountrySerializer(Country.objects.all(), many=True)
     # Initialize as a list
     search_results = []
     
@@ -62,28 +47,28 @@ def homepage_view(request):
                 })
                 if response.status_code == 200:
                     # Parse the JSON response from the Chromeview
-                    # Inside your loop for multiple locations
                     response_data = response.json()
                     search_results.append({"city": city, "results": response_data.get('search_results', [])})
                     logging.info(f"Received results for {city}")
+
                 else:
                     # Handle the case where the API request failed
                     error_message = f"API request for {city} failed."
-                    return render(request, 'index.html', {'serializer': serializer, 'error_message': error_message})
+                    return render(request, 'index.html', { 'countryserializer':countryserializer, 'error_message': error_message})
             except Location.DoesNotExist:
                 # Handle the case where the selected location doesn't exist
                 error_message = f"Selected location with ID {location_id} does not exist."
-                return render(request, 'index.html', {'serializer': serializer, 'error_message': error_message})
-
+                return render(request, 'index.html', { 'error_message': error_message})
+        # Store search_results in the session after the loop
+        request.session['search_results'] = search_results
     else:
         # Create a serializer to render the form in the template
-        locations = Location.objects.all()
-        serializer = LocationSerializer(locations, many=True)
+        countries = Country.objects.all()
+        countryserializer = CountrySerializer(countries, many=True)
 
-    return render(request, 'index.html', {'serializer': serializer, 'search_results': search_results})
+    return render(request, 'index.html', {'countryserializer':countryserializer, 'search_results': search_results})
 
     
-
 @method_decorator(csrf_exempt, name='dispatch')
 class Chromeview(APIView):
     def post(self, request, format=None):
@@ -93,16 +78,11 @@ class Chromeview(APIView):
         # Extract the selected location
         city = request.data.get('city')
         logging.info(f"Received search_content: {search_content}")
-        # Deserialize the data using the serializer
-        serializer = LocationSerializer(data=request.data)
-        if serializer.is_valid():
-            selected_location = serializer.validated_data
-            # Perform the search and get the search results
-            search_results = self.perform_search(city,search_content,num_results)
-            logging.info("Performing search")
-            # Return the search results as a JSON response
-            return Response({"message": "Location set successfully", 'search_results': search_results}, status=status.HTTP_200_OK)
-
+        # Perform the search and get the search results
+        search_results = self.perform_search(city,search_content,num_results)
+        logging.info("Performing search")
+        # Return the search results as a JSON response
+        return Response({"message": "Location set successfully", 'search_results': search_results}, status=status.HTTP_200_OK)
     # Perform the search feature in our app
     def perform_search(self, city, search_content, num_results):
         # Replace with your API key and search engine ID
@@ -110,7 +90,6 @@ class Chromeview(APIView):
         search_engine_id = settings.SEARCH_ENGINE_ID  # Use the variable defined in your Django settings
         # Get the location from the query parameters (e.g., /search/?location=New+York%2C+NY)
         location = city
-        print(location)
         # Get the search query from the query parameters
         query = search_content + " in " + location
         if not location or not query:
@@ -154,134 +133,34 @@ class Chromeview(APIView):
                 return JsonResponse({"error": "Google Custom Search API request failed."}, status=response.status_code)
         # Return the search results as a list of dictionaries
         return total_results
+    
 
+@csrf_exempt
+def download_csv(request):
+    # Get the search results from the session
+    search_results = request.session.get('search_results', [])
 
-
-
-
-@method_decorator(csrf_exempt, name='dispatch')
-class CityInfoView(APIView):
-    def get_city_info(self, city, format=None):
-        # Replace this hardcoded data with your actual data
-        latitude = float(self.request.query_params.get('latitude'))
-        longitude = float(self.request.query_params.get('longitude'))
-        language =  self.request.query_params.get('language')
-        state =  self.request.query_params.get('state')
-        language_abbreviation = self.request.query_params.get('language_code')
-        city_info = {
-            "City": city,
-            "Languages": language,  # Replace with the actual languages
-            "LanguageAbbreviations": language_abbreviation,  # Replace with the actual abbreviations
-            "State": state,
-            "Latitude": latitude,
-            "Longitude": longitude,
-        }
-        return city_info
-
-    def get_city_languages(self, city):
-        # Replace this hardcoded data with your actual data
-        language_data = {
-            "Language": ["English", "Hindi", "Spanish"],  # Replace with actual languages
-            "English_binary": ["Yes", "No", "Yes"],  # Replace with actual data
-            "Hindi_binary": ["Yes", "No", "Yes"],    # Replace with actual data
-            "Spanish_binary": ["No", "Yes", "No"],   # Replace with actual data
-        }
-
-        # Create a DataFrame
-        df = pd.DataFrame(language_data)
-
-        return df
-
-    def storing_in_mongodb(self, language, browser_language, autocomplete, id_of_object):
-        # Replace this with your MongoDB storage logic
-        pass
-
-    def write(self, i, obj, combination, lat, log, id_of_object, city, data_frame):
-        time.sleep(i)
-        print(i, "---", obj, "---", combination)
-        # Replace this with your actual implementation
-        pass
-
-    def get(self, request, city):
-        # Retrieve information about the city
-        city_info = self.get_city_info(city)
-
-        # Retrieve language data for the city
-        language_dataframe = self.get_city_languages(city)
-
-        # Get latitude and longitude from city_info
-        latitude, longitude = float(city_info['Latitude']), float(city_info['Longitude'])
-
-        # Convert language and language abbreviation strings to lists
-        languages = city_info['Languages'].split(',')
-        languages_abbreviation = city_info['LanguageAbbreviations'].split(',')
-
-        # Create combinations of languages and language abbreviations
-        combinations = list(zip(languages, languages_abbreviation))
-
-        # Simulate processing for each combination
-        results = []
-        for combination in combinations:
-            result = {
-                'Language': combination[0],
-                'LanguageAbbreviation': combination[1],
-                'SampleResult': f'Sample result for {combination[0]} in {city}',
-            }
-            results.append(result)
-
-        return Response({'city_info': city_info, 'language_data': language_dataframe.to_dict(), 'results': results}, status=status.HTTP_200_OK)
-
-
-
-    # def get(self, request, city):
-    #     # Connect to MongoDB
-    #     client = MongoClient("mongodb+srv://vaibhav:Password@cluster0.kfdbs.mongodb.net/test?retryWrites=true&w=majority")
-    #     database_name = client.Autocomplete_results
-    #     collection_name = database_name[city]
-
-    #     # Retrieve information about the city
-    #     city_info = self.get_city_info(city)
-
-    #     # Retrieve language data for the city
-    #     language_dataframe = self.get_city_languages(city)
-
-    #     # Get latitude and longitude from city_info
-    #     latitude, longitude = float(city_info['Latitude']), float(city_info['Longitude'])
-
-    #     # Convert language and language abbreviation strings to lists
-    #     languages = city_info['Languages'].split(',')
-    #     languages_abbreviation = city_info['LanguageAbbreviations'].split(',')
-
-    #     # Create combinations of languages and language abbreviations
-    #     combinations = list(zip(languages, languages_abbreviation))
-
-    #     # Create a list of numbers for synchronization
-    #     list_of_numbers = list(range(0, len(combinations)))
-
-    #     # Create instances of CityInfoView for each combination
-    #     list_of_objects = [self for _ in range(len(combinations))]
-
-    #     # Create a thread pool for parallel execution (replace with your implementation)
-    #     pool = []
-
-    #     # Create MongoDB document data
-    #     rec = {
-    #         "City": city,
-    #         "Month": datetime.datetime.now().strftime("%b"),
-    #         "Date": str(datetime.datetime.now()).split(' ')[0],
-    #         "State": city_info['State']
-    #     }
-
-    #     # Insert a new MongoDB document and get its Object ID (replace with your MongoDB logic)
-    #     object_id = collection_name.insert_one(rec).inserted_id
-
-    #     # Use multi-threading to execute the write function for each combination (replace with your logic)
-    #     for i, obj, combination in zip(list_of_numbers, list_of_objects, combinations):
-    #         self.write(i, obj, combination, latitude, longitude, object_id, city, language_dataframe)
-
-    #     # Close the MongoDB client (replace with your MongoDB logic)
-    #     client.close()
-
-    #     return Response({"message": "City info updated in MongoDB"})
+    # Create a CSV response
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="search_results.csv"'
 
     
+    # Create a CSV writer
+    csv_writer = csv.writer(response)
+    # Write the header row
+    csv_writer.writerow(['City', 'Title', 'Link', 'Snippet'])
+
+    # Write the search results to the CSV file
+    for city_data in search_results:
+        city = city_data.get('city', '')  # Handle the case where 'city' is missing
+        results = city_data.get('results', [])
+
+        for result in results:
+            title = result.get('title', '')  # Handle the case where 'title' is missing
+            link = result.get('link', '')  # Handle the case where 'link' is missing
+            snippet = result.get('snippet', '')  # Handle the case where 'snippet' is missing
+
+            # Write the data to the CSV file
+            csv_writer.writerow([city, title, link, snippet])
+
+    return response
