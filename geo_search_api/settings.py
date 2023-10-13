@@ -26,10 +26,12 @@ SECRET_KEY = 'django-insecure-$o7a&r%rqvt6zhekb+3sh@bev9(5!_6b)v9j*at!vr)uc7(0%!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['74.50.67.58']
+ALLOWED_HOSTS = ['*']
 # API keys
 GOOGLE_API_KEY = config('GOOGLE_API_KEY')
 SEARCH_ENGINE_ID = config('SEARCH_ENGINE_ID')
+DOWELL_API_KEY = config('DOWELL_API_KEY')
+DOWELL_TESTING_API_KEY = config('DOWELL_TESTING_API_KEY')
 
 # Application definition
 

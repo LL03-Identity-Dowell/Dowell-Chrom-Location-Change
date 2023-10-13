@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import redirect
 from django.http import JsonResponse
+from django.views import View
 import csv
 from django.http import HttpResponse
 from rest_framework.views import APIView
@@ -23,50 +24,76 @@ from django.utils.decorators import method_decorator
 
 
 logging.basicConfig(level=logging.INFO)
-@csrf_exempt
-def homepage_view(request):
-    countryserializer =CountrySerializer(Country.objects.all(), many=True)
-    # Initialize as a list
-    search_results = []
-    
-    if request.method == 'POST':
-        # Deserialize the data using the serializer
-        selected_location_ids = request.POST.getlist('location')  # Get a list of selected location IDs
+
+@method_decorator(csrf_exempt, name='dispatch')
+class HomepageView(View):
+    def get(self, request):
+        # Make an API request to get the list of countries
+        dowell_api_key = settings.DOWELL_API_KEY
+        dowell_testing_api_key = settings.DOWELL_TESTING_API_KEY
+        search_results = []
+        country_api_url = f'https://100074.pythonanywhere.com/get-countries-v3/?api_key={dowell_api_key}'
+        response = requests.post(country_api_url)
+
+        if response.status_code == 200:
+            data = response.json()
+            if 'data' in data and len(data['data']) > 0:
+                countries = data['data'][0].get('countries', [])
+                
+                if countries:
+                    # Sort the list of countries alphabetically
+                    countries = sorted(countries)
+                    return render(request, 'index.html', {'countries': countries, 'search_results': search_results})
+        else:
+            # Handle the case where the API request failed
+            error_message = "Failed to retrieve country data from the API."
+            return render(request, 'index.html', {'search_results': search_results, 'error_message': error_message})
+    def post(self, request):
+        dowell_api_key = settings.DOWELL_API_KEY
+        dowell_testing_api_key = settings.DOWELL_TESTING_API_KEY
+        search_results = []  # Initialize as an empty list
+        countries = []  # Initialize as an empty list
+
+        # Make a new API request to get the list of countries in the POST request
+        country_api_url = f'https://100074.pythonanywhere.com/get-countries-v3/?api_key={dowell_api_key}'
+        response = requests.post(country_api_url)
+
+        if response.status_code == 200:
+            data = response.json()
+            if 'data' in data and len(data['data']) > 0:
+                countries = data['data'][0].get('countries', [])
+                
+                if countries:
+                    # Sort the list of countries alphabetically
+                    countries = sorted(countries)
+
+        location = request.POST.getlist('location', [])
         search_content = request.POST.get('search', '')
         num_results = request.POST.get('num_results')
-        
-        for location_id in selected_location_ids:
-            try:
-                selected_location = Location.objects.get(id=location_id)
-                city = selected_location.name
-                # Make a POST request to your APIView to set the Chrome instance
+
+        try:
+            for city in location:  # Loop through selected locations
                 response = requests.post('http://127.0.0.1:8080/api/geo_location/', data={
                     "city": city,
                     'search_content': search_content,
                     'num_results': num_results
                 })
+
                 if response.status_code == 200:
-                    # Parse the JSON response from the Chromeview
                     response_data = response.json()
                     search_results.append({"city": city, "results": response_data.get('search_results', [])})
                     logging.info(f"Received results for {city}")
-
                 else:
-                    # Handle the case where the API request failed
                     error_message = f"API request for {city} failed."
-                    return render(request, 'index.html', { 'countryserializer':countryserializer, 'error_message': error_message})
-            except Location.DoesNotExist:
-                # Handle the case where the selected location doesn't exist
-                error_message = f"Selected location with ID {location_id} does not exist."
-                return render(request, 'index.html', { 'error_message': error_message})
-        # Store search_results in the session after the loop
-        request.session['search_results'] = search_results
-    else:
-        # Create a serializer to render the form in the template
-        countries = Country.objects.all()
-        countryserializer = CountrySerializer(countries, many=True)
+                    return render(request, 'index.html', {'countries': countries,'error_message': error_message})
+        except Location.DoesNotExist:
+            error_message = f"Selected location does not exist."
+            return render(request, 'index.html', {'countries': countries,'error_message': error_message})
 
-    return render(request, 'index.html', {'countryserializer':countryserializer, 'search_results': search_results})
+        request.session['search_results'] = search_results
+
+        return render(request, 'index.html', {'countries': countries, 'search_results': search_results})
+
 
     
 @method_decorator(csrf_exempt, name='dispatch')

@@ -10,30 +10,27 @@
 <body class="bg-gray-100 p-8">
     <div class="container mx-auto">
         <h1 class="text-2xl font-semibold mb-4">Select a Location</h1>
+        {{ error_message }}
         <div class="bg-white rounded-lg p-4 shadow-md">
             <form id="locationForm" method="POST">
                 {% csrf_token %}
-                <!-- Country select dropdown with Select2 -->
+                <!-- add the onchange event handler to the "countries" dropdown -->
                 <div class="mb-4">
                     <label for="countries" class="block text-gray-700">Select country(s)</label>
-                    <select name="countries" id="countries" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" multiple>
-                        {% for country in countryserializer.data %}
-                            <option value="{{ country.id }}">{{ country.name }}</option>
+                    <select name="countries" id="countries" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" multiple onchange="loadLocations()">
+                        {% for country in countries %}
+                            <option value="{{ country }}">{{ country }}</option>
                         {% endfor %}
                     </select>                    
                 </div>
 
-                <!-- Location select dropdown with Select2 -->
                 <div class="mb-4">
                     <label for="location" class="block text-gray-700">Select location(s)</label>
                     <select name="location" id="location" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" multiple>
-                        {% for country in countryserializer.data %}
-                            {% for location in country.locations %}
-                                <option value="{{ location.id }}">{{ location.name }}</option>
-                            {% endfor %}
-                        {% endfor %}
+                        <!-- Locations will be populated dynamically using JavaScript -->
                     </select>
                 </div>
+
 
                         
 
@@ -142,84 +139,82 @@
         });
     </script>
 
-    <!-- script for locations based on country -->
-    <script>
-        $(document).ready(function () {
-            // Initialize Select2 for countries
-            $('#countries').select2();
-        
-            // Initialize Select2 for locations
-            $('#location').select2();
-        
-            // Function to retrieve and populate selected countries and locations from local storage
-            function retrieveSelectedValues() {
-                var selectedCountries = JSON.parse(localStorage.getItem('selectedCountries'));
-                var selectedLocations = JSON.parse(localStorage.getItem('selectedLocations'));
-        
-                if (selectedCountries) {
-                    $('#countries').val(selectedCountries).trigger('change');
-                }
-        
-                if (selectedLocations) {
-                    $('#location').val(selectedLocations).trigger('change');
-                }
-            }
-        
-            // Create a dictionary to store the locations for each country
-            var countryLocations = {
-                {% for country in countryserializer.data %}
-                "{{ country.id }}": [
-                    {% for location in country.locations %}
-                    { "id": "{{ location.id }}", "name": "{{ location.name }}" },
-                    {% endfor %}
-                ],
-                {% endfor %}
-            };
-        
-            // Function to update the locations dropdown based on selected countries
-            function updateLocationsDropdown() {
-                $('#location').empty(); // Clear the current options
-        
-                // Get the selected country IDs from the countries dropdown
-                var selectedCountryIds = $('#countries').val();
-        
-                // Add locations of selected countries to the locations dropdown
-                selectedCountryIds.forEach(function (countryId) {
-                    var locations = countryLocations[countryId];
-                    if (locations) {
-                        locations.forEach(function (location) {
-                            $('#location').append($('<option>', {
-                                value: location.id,
-                                text: location.name
-                            }));
-                        });
-                    }
-                });
-        
-                // Trigger the change event for the locations dropdown to update Select2
-                $('#location').trigger('change');
-            }
-        
-            // Listen for changes in the countries dropdown
-            $('#countries').on('change', function () {
-                updateLocationsDropdown();
-            });
-        
-            // Initialize the locations dropdown and retrieve selected values
-            updateLocationsDropdown();
-            retrieveSelectedValues();
-        });
-    </script>
-        
     <!-- JavaScript to populate form fields from local storage on page load -->
     <script>
         window.addEventListener('load', function() {
-            // Populate the form fields from local storage
+            // Populate the "countries" and "location" fields from local storage
+            var selectedCountries = JSON.parse(localStorage.getItem('selectedCountries'));
+            var selectedLocations = JSON.parse(localStorage.getItem('selectedLocations'));
+
+            // Set the selected values for the "countries" and "location" fields
+            if (selectedCountries) {
+                $('#countries').val(selectedCountries).trigger('change');
+            }
+
+            if (selectedLocations) {
+                $('#location').val(selectedLocations).trigger('change');
+            }
+
+            // Populate other form fields
             document.getElementById('search').value = localStorage.getItem('search') || '';
             document.getElementById('numResults').value = localStorage.getItem('numResults') || '';
         });
     </script>
-    <!-- JavaScript to handle clearing the form and local storage -->
+    <!-- JavaScript for countries -->
+   <script>
+        $(document).ready(function () {
+            console.log(countries);  // Add this line to check the data
+            $('#countries').select2();
+            $('#location').select2();
+        });
+   </script>
+    <script>
+        function loadLocations() {
+            // Get the selected country from the dropdown
+            var selectedCountry = $('#countries').val();
+    
+            if (!selectedCountry) {
+                // Clear the "location" dropdown if no country is selected
+                $('#location').empty();
+                return;
+            }
+    
+            // Make an AJAX request to fetch locations based on the selected country
+            $.ajax({
+                url: 'https://100074.pythonanywhere.com/get-coords-v3/?api_key=4f0bd662-8456-4b2e-afa6-293d4135facf',
+                type: 'POST',
+                data: JSON.stringify({
+                    country: selectedCountry,
+                    query: 'all'
+                }),
+                dataType: 'json',
+                contentType: 'application/json',
+                success: function (data) {
+                    // Clear and populate the "location" dropdown with the received locations
+                    var locationDropdown = $('#location');
+                    locationDropdown.empty();
+    
+                    data.data.forEach(function (location) {
+                        locationDropdown.append($('<option>', {
+                            value: location.name,  // Use the name as the option value
+                            text: location.name  // Display the name in the dropdown
+                        }));
+                    });
+                },
+                error: function (error) {
+                    console.log('Error:', error);
+                }
+            });
+        }
+    
+        // Bind the loadLocations function to the "change" event of the countries dropdown
+        $('#countries').on('change', function () {
+            loadLocations();
+        });
+    </script>
+    
+
+     <!-- JavaScript to handle clearing the form and local storage  -->
     <script>
         document.getElementById('clearButton').addEventListener('click', function (e) {
             // Clear the entire form by resetting it
@@ -240,7 +235,7 @@
             localStorage.removeItem('search');
             localStorage.removeItem('numResults');
         });
-    </script>
+    </script> 
     <!-- JavaScript for tabbed interface -->
     <script>
         // Function to switch tabs
