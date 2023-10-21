@@ -7,6 +7,6 @@ def reference_is_live(request):
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('geo_search.urls')),
+    path('api', include('geo_search.urls')),
     path('', reference_is_live),
 ]
