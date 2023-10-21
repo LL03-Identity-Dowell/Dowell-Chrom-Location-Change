@@ -9,4 +9,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('geo_search.urls')),
     path('', reference_is_live),
+<<<<<<< HEAD
 ]
+=======
+]
+>>>>>>> be92749c57e4c79c748ce6e3e2777b96e51e40fc
