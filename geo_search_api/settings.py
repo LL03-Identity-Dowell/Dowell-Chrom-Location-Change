@@ -26,12 +26,12 @@ SECRET_KEY = 'django-insecure-$o7a&r%rqvt6zhekb+3sh@bev9(5!_6b)v9j*at!vr)uc7(0%!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['geopositioning.uxlivinglab.online', '127.0.0.1']
 # API keys
-GOOGLE_API_KEY = config('GOOGLE_API_KEY')
-SEARCH_ENGINE_ID = config('SEARCH_ENGINE_ID')
-DOWELL_API_KEY = config('DOWELL_API_KEY')
-DOWELL_TESTING_API_KEY = config('DOWELL_TESTING_API_KEY')
+GOOGLE_API_KEY = config('GOOGLE_API_KEY', '')
+SEARCH_ENGINE_ID = config('SEARCH_ENGINE_ID','')
+DOWELL_API_KEY = config('DOWELL_API_KEY','')
+DOWELL_TESTING_API_KEY = config('DOWELL_TESTING_API_KEY','')
 
 # Application definition
 
@@ -76,6 +76,16 @@ TEMPLATES = [
         },
     },
 ]
+
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379/1',  # Update with your Redis URL
+    }
+}
+
+
 
 WSGI_APPLICATION = 'geo_search_api.wsgi.application'
 

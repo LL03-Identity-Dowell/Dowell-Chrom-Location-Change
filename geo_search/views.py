@@ -19,54 +19,94 @@ from django.views.decorators.csrf import csrf_exempt
 import logging,json,tempfile
 from bs4 import BeautifulSoup
 from django.conf import settings
+from django.core.cache import cache
 from django.utils.decorators import method_decorator
-
-
-
 logging.basicConfig(level=logging.INFO)
+
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class HomepageView(View):
     def get(self, request):
-        # Make an API request to get the list of countries
-        dowell_api_key = settings.DOWELL_API_KEY
-        dowell_testing_api_key = settings.DOWELL_TESTING_API_KEY
+        # Attempt to get countries from cache
+        countries = cache.get('cached_countries')
+        print(countries)
         search_results = []
-        country_api_url = f'https://100074.pythonanywhere.com/get-countries-v3/?api_key={dowell_api_key}'
-        response = requests.post(country_api_url)
-
-        if response.status_code == 200:
-            data = response.json()
-            if 'data' in data and len(data['data']) > 0:
-                countries = data['data'][0].get('countries', [])
-                
-                if countries:
-                    # Sort the list of countries alphabetically
-                    countries = sorted(countries)
-                    return render(request, 'index.html', {'countries': countries, 'search_results': search_results})
+        if countries is not None:
+            print("Cache hit: Using cached countries")
         else:
-            # Handle the case where the API request failed
-            error_message = "Failed to retrieve country data from the API."
-            return render(request, 'index.html', {'search_results': search_results, 'error_message': error_message})
+            print("Cache miss: Fetching countries from the API")
+
+
+        if countries is None:
+            # If not found in cache, make an API request to get the list of countries
+            dowell_api_key = settings.DOWELL_API_KEY
+            dowell_testing_api_key = settings.DOWELL_TESTING_API_KEY
+
+            country_api_url = f'https://100074.pythonanywhere.com/get-countries-v3/?api_key={dowell_api_key}'
+            print(country_api_url)
+            response = requests.post(country_api_url)
+
+            if response.status_code == 200:
+                data = response.json()
+                if 'data' in data and len(data['data']) > 0:
+                    countries = data['data'][0].get('countries', [])
+                    
+                    if countries:
+                        # Sort the list of countries alphabetically
+                        countries = sorted(countries)
+                        # Store the countries in the cache with a timeout
+                        cache.set('cached_countries', countries, 86400)
+                else:
+                    # Handle the case where the API request failed
+                    error_message = "Failed to retrieve country data from the API."
+                    return render(request, 'index.html', {'search_results': search_results, 'error_message': error_message})
+            else:
+                # Handle the case where the API request failed
+                error_message = "Failed to retrieve country data from the API."
+                return render(request, 'index.html', {'search_results': search_results, 'error_message': error_message})
+
+        # Use the cached or fetched countries
+        return render(request, 'index.html', {'countries': countries, 'search_results': search_results})
     def post(self, request):
         dowell_api_key = settings.DOWELL_API_KEY
         dowell_testing_api_key = settings.DOWELL_TESTING_API_KEY
         search_results = []  # Initialize as an empty list
-        countries = []  # Initialize as an empty list
 
-        # Make a new API request to get the list of countries in the POST request
-        country_api_url = f'https://100074.pythonanywhere.com/get-countries-v3/?api_key={dowell_api_key}'
-        response = requests.post(country_api_url)
+        # Attempt to get countries from cache
+        countries = cache.get('cached_countries')
 
-        if response.status_code == 200:
-            data = response.json()
-            if 'data' in data and len(data['data']) > 0:
-                countries = data['data'][0].get('countries', [])
-                
-                if countries:
-                    # Sort the list of countries alphabetically
-                    countries = sorted(countries)
+        if countries is not None:
+            print("Cache hit: Using cached countries")
+        else:
+            print("Cache miss: Fetching countries from the API")
+        
 
+        if countries is None:
+            # If not found in cache, make an API request to get the list of countries
+            country_api_url = f'https://100074.pythonanywhere.com/get-countries-v3/?api_key={dowell_api_key}'
+            response = requests.post(country_api_url)
+
+            if response.status_code == 200:
+                data = response.json()
+                if 'data' in data and len(data['data']) > 0:
+                    countries = data['data'][0].get('countries', [])
+                    
+                    if countries:
+                        # Sort the list of countries alphabetically
+                        countries = sorted(countries)
+                        # Store the countries in the cache with a timeout
+                        cache.set('cached_countries', countries, 86400)
+                else:
+                    # Handle the case where the API request failed
+                    error_message = "Failed to retrieve country data from the API."
+                    return render(request, 'index.html', {'search_results': search_results, 'error_message': error_message})
+            else:
+                # Handle the case where the API request failed
+                error_message = "Failed to retrieve country data from the API."
+                return render(request, 'index.html', {'search_results': search_results, 'error_message': error_message})
+
+        # Continue with the rest of your post method logic using the cached or fetched countries
         location = request.POST.getlist('location', [])
         search_content = request.POST.get('search', '')
         num_results = request.POST.get('num_results')

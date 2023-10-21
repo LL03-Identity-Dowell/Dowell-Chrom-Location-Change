@@ -7,11 +7,11 @@
     <!-- Include Select2 CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet">
 </head>
-<body class="bg-gray-100 p-8">
+<body class="bg-gray-100 p-4 sm:p-8">
     <div class="container mx-auto">
         <h1 class="text-2xl font-semibold mb-4">Select a Location</h1>
         {{ error_message }}
-        <div class="bg-white rounded-lg p-4 shadow-md">
+        <div class="bg-white rounded-lg p-4 sm:p-8 shadow-md">
             <form id="locationForm" method="POST">
                 {% csrf_token %}
                 <!-- add the onchange event handler to the "countries" dropdown -->
@@ -31,26 +31,27 @@
                     </select>
                 </div>
 
-
-                        
-
                 <div class="mb-4">
-                    <input type="text" name="search" id="search" class="appearance-none bg-transparent border-none w-full text-gray-700 mr-3 py-1 px-2 leading-tight focus:outline-none" type="text" placeholder="Search..." aria-label="Search" required>
+                    <input type="text" name="search" id="search" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" type="text" placeholder="Search..." aria-label="Search" required>
                 </div>
+
                 <!-- Number of results input with Tailwind CSS classes -->
                 <div class="mb-4">
                     <label for="numResults" class="block text-gray-700">Number of Results</label>
                     <input type="number" name="num_results" id="numResults" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" required>
                 </div>
+                
                 <!-- "Set Location" button to submit the form -->
-                <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-blue-500">
+                <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-blue-500 w-full sm:w-auto">
                     Search
                 </button>
                 <!-- "Clear" button to clear the form -->
-                <button type="button" id="clearButton" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-red-500">
+                <button type="button" id="clearButton" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-red-500 w-full sm:w-auto">
                     Clear
                 </button>
-            </form>            
+
+            </form>
+            
             <!-- Message container to display the location set message -->
             <div id="messageContainer" class="hidden bg-green-200 text-green-700 p-2 rounded mt-2">
                 Searching...
@@ -58,46 +59,50 @@
         </div>
     </div>
 
-<!-- Tabs for displaying results -->
-<div class="container mx-auto mt-8">
-    <div class="flex">
-        {% for location_results in search_results %}
-            <input type="radio" name="tabs" id="{{ location_results.city }}" class="hidden">
-            <label for="{{ location_results.city }}" class="cursor-pointer px-4 py-2 rounded-t-lg bg-gray-200 text-gray-700 hover:bg-blue-500" onclick="changeTabColor(this)">
-                {{ location_results.city }} Results
-            </label>
-        {% endfor %}
-    </div>
-    <div class="bg-white rounded-b-lg p-4 shadow-md">
-        {% for location_results in search_results %}
-            <div id="{{ location_results.city }}-content" class="tab-content hidden">
-                <div class="container mx-auto p-4">
-                    <div class="space-y-8">
-                        {% for result in location_results.results %}
-                            <div class="border-b border-gray-300 pb-4">
-                                <h2 class="text-lg font-medium">
-                                    <a href="{{ result.link }}" target="_blank" class="text-blue-500 hover:underline">{{ result.title }}</a>
-                                </h2>
-                                
-                                <p class="text-gray-600">{{ result.snippet }}</p>
-                                <div class="mt-2">
-                                    {% for image in result.images %}
-                                        <img src="{{ image.src }}" alt="{{ result.title }}" class="w-40 h-40" />
-                                        <!-- Change w-full and h-auto to your desired image size -->
-                                    {% endfor %}
+    <!-- Tabs for displaying results -->
+    <div class="container mx-auto mt-8">
+        <div class="flex flex-wrap">
+            {% for location_results in search_results %}
+                <input type="radio" name="tabs" id="{{ location_results.city }}" class="hidden">
+                <label for="{{ location_results.city }}" class="cursor-pointer flex-1 px-4 py-2 rounded-t-lg bg-gray-200 text-gray-700 hover:bg-blue-500" onclick="changeTabColor(this)">
+                    {{ location_results.city }} Results
+                </label>
+            {% endfor %}
+        </div>
+        <div class="bg-white rounded-b-lg p-4 sm:p-8 shadow-md">
+            {% for location_results in search_results %}
+                <div id="{{ location_results.city }}-content" class="tab-content hidden">
+                    <div class="container mx-auto p-4">
+                        <div class="space-y-4 sm:space-y-8">
+                            {% for result in location_results.results %}
+                                <div class="border-b border-gray-300 pb-4">
+                                    <h2 class="text-lg font-medium">
+                                        <a href="{{ result.link }}" target="_blank" class="text-blue-500 hover:underline">{{ result.title }}</a>
+                                    </h2>
+                                    <p class="text-gray-600">{{ result.snippet }}</p>
+                                    <div class="mt-2">
+                                        <div class="flex flex-wrap">
+                                            {% for image in result.images %}
+                                                <img src="{{ image.src }}" alt="{{ result.title }}" class="w-40 h-40 sm:w-60 sm:h-60 p-2" />
+                                            {% endfor %}
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        {% endfor %}
+                            {% endfor %}
+                        </div>
+                        <!-- Add a button/link to trigger CSV download -->
+                        <a href="{% url 'download' %}" id="downloadCSVButton" class="w-full bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-green-500" onclick="showDownloadSuccessMessage()">
+                            Download Search Results as CSV
+                        </a>
+                        <!-- Message container to display the download success message -->
+                        <div id="downloadMessageContainer" class="hidden bg-green-200 text-green-700 p-2 rounded mt-2">
+                            Successfully downloaded search results.
+                        </div>
                     </div>
-                    <!-- Add a button/link to trigger CSV download -->
-                    <a href="{% url 'download' %}" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-green-500">
-                        Download Search Results as CSV
-                    </a>
                 </div>
-            </div>
-        {% endfor %}
+            {% endfor %}
+        </div>
     </div>
-</div>
 
 
 
@@ -170,40 +175,56 @@
    </script>
     <script>
         function loadLocations() {
-            // Get the selected country from the dropdown
-            var selectedCountry = $('#countries').val();
+        // Get the selected country from the dropdown
+        var selectedCountry = $('#countries').val();
+
+        // Clear the "location" dropdown if no country is selected
+        if (!selectedCountry) {
+            $('#location').empty().trigger('change');
+            return;
+        }
+
     
-            if (!selectedCountry) {
-                // Clear the "location" dropdown if no country is selected
-                $('#location').empty();
-                return;
+            // Check if location data for the selected country is in local storage
+            var cachedLocations = localStorage.getItem(selectedCountry);
+    
+            if (cachedLocations) {
+                // Use the cached data
+                populateLocationDropdown(JSON.parse(cachedLocations));
+            } else {
+                // Make an AJAX request to fetch locations based on the selected country
+                $.ajax({
+                    url: 'https://100074.pythonanywhere.com/get-coords-v3/?api_key=4f0bd662-8456-4b2e-afa6-293d4135facf',
+                    type: 'POST',
+                    data: JSON.stringify({
+                        country: selectedCountry,
+                        query: 'all'
+                    }),
+                    dataType: 'json',
+                    contentType: 'application/json',
+                    success: function (data) {
+                        // Cache the location data in local storage for future use
+                        localStorage.setItem(selectedCountry, JSON.stringify(data.data));
+                        // Populate the "location" dropdown
+                        populateLocationDropdown(data.data);
+                    },
+                    error: function (error) {
+                        console.log('Error:', error);
+                    }
+                });
             }
+        }
     
-            // Make an AJAX request to fetch locations based on the selected country
-            $.ajax({
-                url: 'https://100074.pythonanywhere.com/get-coords-v3/?api_key=4f0bd662-8456-4b2e-afa6-293d4135facf',
-                type: 'POST',
-                data: JSON.stringify({
-                    country: selectedCountry,
-                    query: 'all'
-                }),
-                dataType: 'json',
-                contentType: 'application/json',
-                success: function (data) {
-                    // Clear and populate the "location" dropdown with the received locations
-                    var locationDropdown = $('#location');
-                    locationDropdown.empty();
+        function populateLocationDropdown(locations) {
+            // Clear and populate the "location" dropdown with the received locations
+            var locationDropdown = $('#location');
+            locationDropdown.empty();
     
-                    data.data.forEach(function (location) {
-                        locationDropdown.append($('<option>', {
-                            value: location.name,  // Use the name as the option value
-                            text: location.name  // Display the name in the dropdown
-                        }));
-                    });
-                },
-                error: function (error) {
-                    console.log('Error:', error);
-                }
+            locations.forEach(function (location) {
+                locationDropdown.append($('<option>', {
+                    value: location.name,  // Use the name as the option value
+                    text: location.name  // Display the name in the dropdown
+                }));
             });
         }
     
@@ -213,29 +234,28 @@
         });
     </script>
     
-
-     <!-- JavaScript to handle clearing the form and local storage  -->
+    
     <script>
         document.getElementById('clearButton').addEventListener('click', function (e) {
-            // Clear the entire form by resetting it
-            document.getElementById('locationForm').reset();
-            // Clear the Select2 dropdown selection
-            $('#location').val([]).trigger('change');
-            // Hide the message container
-            document.getElementById('messageContainer').style.display = 'none';
+        // Clear the entire form by resetting it
+        document.getElementById('locationForm').reset();
+        // Clear the Select2 dropdown selection for "location"
+        $('#location').empty().trigger('change');
+        // Clear the Select2 dropdown selection for "countries"
+        $('#countries').val(null).trigger('change');
+        // Hide the message container
+        document.getElementById('messageContainer').style.display = 'none';
 
-            // Clear the stored values in local storage
-            localStorage.removeItem('search');
-            localStorage.removeItem('numResults');
-            localStorage.removeItem('location');
-        });
+        // Clear the stored values in local storage
+        localStorage.removeItem('search');
+        localStorage.removeItem('numResults');
+        localStorage.removeItem('selectedLocations'); // Clear selected locations
+        localStorage.removeItem('selectedCountries'); // Clear selected countries
+    });
 
-        // Clear local storage when the page is loaded
-        window.addEventListener('load', function() {
-            localStorage.removeItem('search');
-            localStorage.removeItem('numResults');
-        });
-    </script> 
+
+    </script>
+     
     <!-- JavaScript for tabbed interface -->
     <script>
         // Function to switch tabs
@@ -260,5 +280,18 @@
         // Show the first tab by default
         switchTab('{{ search_results.0.city }}-content');
     </script>
+
+    <!-- download success -->
+    <script>
+        function showDownloadSuccessMessage() {
+            // Show the download success message container
+            document.getElementById('downloadMessageContainer').classList.remove('hidden');
+    
+            // Hide the message after a few seconds (optional)
+            setTimeout(function () {
+                document.getElementById('downloadMessageContainer').classList.add('hidden');
+            }, 3000); // Display for 3 seconds, you can adjust this duration
+        }
+    </script>    
 </body>
 </html>
