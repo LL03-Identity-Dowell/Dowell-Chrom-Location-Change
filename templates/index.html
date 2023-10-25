@@ -23,6 +23,7 @@
                         {% endfor %}
                     </select>                    
                 </div>
+                <div id="countriesMessage" style="color: red;"></div>
 
                 <div class="mb-4">
                     <label for="location" class="block text-gray-700">Select location(s)</label>
@@ -30,6 +31,7 @@
                         <!-- Locations will be populated dynamically using JavaScript -->
                     </select>
                 </div>
+                <div id="locationMessage" style="color: red;"></div>
 
                 <div class="mb-4">
                     <input type="text" name="search" id="search" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" type="text" placeholder="Search..." aria-label="Search" required>
@@ -125,118 +127,193 @@
     <!-- Include Select2 JavaScript -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
 
-    <!-- JavaScript to handle form submission and show message -->
-    <script>
-        document.getElementById('locationForm').addEventListener('submit', function (e) {
-            // Show the message container
-            document.getElementById('messageContainer').style.display = 'block';
-            
-            // Store the selected location values in local storage
-            var selectedLocations = $('#location').val();
-            localStorage.setItem('selectedLocations', JSON.stringify(selectedLocations));
-            
-            // Store the selected countries in local storage
-            var selectedCountries = $('#countries').val();
-            localStorage.setItem('selectedCountries', JSON.stringify(selectedCountries));
+   <!-- JavaScript to handle form submission and show message -->
+<script>
+    document.getElementById('locationForm').addEventListener('submit', function (e) {
+        // Show the message container
+        document.getElementById('messageContainer').style.display = 'block';
 
-            localStorage.setItem('search', document.getElementById('search').value);
-            localStorage.setItem('numResults', document.getElementById('numResults').value);
-        });
-    </script>
+        // Store the selected location values in local storage
+        var selectedLocations = $('#location').val();
+        localStorage.setItem('selectedLocations', JSON.stringify(selectedLocations));
 
-    <!-- JavaScript to populate form fields from local storage on page load -->
-    <script>
-        window.addEventListener('load', function() {
-            // Populate the "countries" and "location" fields from local storage
-            var selectedCountries = JSON.parse(localStorage.getItem('selectedCountries'));
-            var selectedLocations = JSON.parse(localStorage.getItem('selectedLocations'));
+        // Store the selected countries in local storage
+        var selectedCountries = $('#countries').val();
+        localStorage.setItem('selectedCountries', JSON.stringify(selectedCountries));
 
-            // Set the selected values for the "countries" and "location" fields
-            if (selectedCountries) {
-                $('#countries').val(selectedCountries).trigger('change');
-            }
+        localStorage.setItem('search', document.getElementById('search').value);
+        localStorage.setItem('numResults', document.getElementById('numResults').value);
 
-            if (selectedLocations) {
-                $('#location').val(selectedLocations).trigger('change');
-            }
+        
+    });
+</script>
 
-            // Populate other form fields
-            document.getElementById('search').value = localStorage.getItem('search') || '';
-            document.getElementById('numResults').value = localStorage.getItem('numResults') || '';
-        });
-    </script>
-    <!-- JavaScript for countries -->
-   <script>
-        $(document).ready(function () {
-            console.log(countries);  // Add this line to check the data
-            $('#countries').select2();
-            $('#location').select2();
-        });
-   </script>
-    <script>
-        function loadLocations() {
-        // Get the selected country from the dropdown
-        var selectedCountry = $('#countries').val();
+<!-- JavaScript to populate form fields from local storage on page load -->
+<script>
+    window.addEventListener('load', function() {
+        // Populate the "countries" and "location" fields from local storage
+        var selectedCountries = JSON.parse(localStorage.getItem('selectedCountries'));
+        var selectedLocations = JSON.parse(localStorage.getItem('selectedLocations'));
 
-        // Clear the "location" dropdown if no country is selected
-        if (!selectedCountry) {
-            $('#location').empty().trigger('change');
-            return;
+        // Set the selected values for the "countries" and "location" fields
+        if (selectedCountries) {
+            $('#countries').val(selectedCountries).trigger('change');
         }
 
-    
-            // Check if location data for the selected country is in local storage
-            var cachedLocations = localStorage.getItem(selectedCountry);
-    
-            if (cachedLocations) {
-                // Use the cached data
-                populateLocationDropdown(JSON.parse(cachedLocations));
+        if (selectedLocations) {
+            $('#location').val(selectedLocations).trigger('change');
+        }
+
+        // Populate other form fields
+        document.getElementById('search').value = localStorage.getItem('search') || '';
+        document.getElementById('numResults').value = localStorage.getItem('numResults') || '';
+    });
+</script>
+
+<!-- JavaScript for countries -->
+<script>
+    $(document).ready(function () {
+        $('#countries').select2();
+        $('#location').select2();
+
+        // Limit the number of selections in the "countries" dropdown to 10
+        $('#countries').on('select2:select', function (e) {
+            var selectedCountries = $(this).val() || [];
+            if (selectedCountries.length > 10) {
+                selectedCountries.pop();
+                $(this).val(selectedCountries).trigger('change');
+
+                // Display the message for the "countries" dropdown on the screen in red
+                $('#countriesMessage').text("You can only select a maximum of 10 countries.").css('color', 'red');
             } else {
+                // Clear the message and reset its color
+                $('#countriesMessage').text("").css('color', 'black');
+            }
+        });
+
+        // Limit the number of selections in the "location" dropdown to 10
+        $('#location').on('select2:select', function (e) {
+            var selectedLocations = $(this).val() || [];
+            if (selectedLocations.length > 10) {
+                selectedLocations.pop();
+                $(this).val(selectedLocations).trigger('change');
+
+                // Display the message for the "location" dropdown on the screen in red
+                $('#locationMessage').text("You can only select a maximum of 10 locations.").css('color', 'red');
+            } else {
+                // Clear the message and reset its color
+                $('#locationMessage').text("").css('color', 'black');
+            }
+        });
+    });
+</script>
+
+<script>
+    function loadLocations() {
+        // Get the selected countries from the dropdown
+        var selectedCountries = $('#countries').val();
+
+        
+        // Store the selected locations
+        var selectedLocations = $('#location').val() || [];
+
+        // Disable the "location" dropdown and show "Fetching locations" message with inline styles
+        var locationDropdown = document.getElementById('location');
+        locationDropdown.disabled = true; // Disable the dropdown
+        locationDropdown.innerHTML = '<option value="" selected disabled style="font-style: italic; color: #999;">Fetching locations...</option>';
+
+
+        // Check if location data for the selected countries is in local storage
+        // Modify this part according to your data storage structure
+        var cachedLocations = {};
+        selectedCountries.forEach(function (country) {
+            var cachedData = localStorage.getItem(country);
+            if (cachedData) {
+                cachedLocations[country] = JSON.parse(cachedData);
+            }
+        });
+
+        if (Object.keys(cachedLocations).length === selectedCountries.length) {
+            // All data is cached, populate the location dropdown
+            populateLocationDropdown(cachedLocations, selectedLocations);
+            // Enable the "location" dropdown
+            locationDropdown.disabled = false;
+        } else {
+            // Some data is missing, make AJAX requests for missing data
+            var missingCountries = selectedCountries.filter(function (country) {
+                return !cachedLocations[country];
+            });
+
+            missingCountries.forEach(function (country) {
                 // Make an AJAX request to fetch locations based on the selected country
                 $.ajax({
                     url: 'https://100074.pythonanywhere.com/get-coords-v3/?api_key=4f0bd662-8456-4b2e-afa6-293d4135facf',
                     type: 'POST',
                     data: JSON.stringify({
-                        country: selectedCountry,
+                        country: country,
                         query: 'all'
                     }),
                     dataType: 'json',
                     contentType: 'application/json',
                     success: function (data) {
                         // Cache the location data in local storage for future use
-                        localStorage.setItem(selectedCountry, JSON.stringify(data.data));
-                        // Populate the "location" dropdown
-                        populateLocationDropdown(data.data);
+                        localStorage.setItem(country, JSON.stringify(data.data));
+
+                        // Update the cachedLocations object
+                        cachedLocations[country] = data.data;
+
+                        // Check if all data is available now and populate the location dropdown
+                        if (Object.keys(cachedLocations).length === selectedCountries.length) {
+                            populateLocationDropdown(cachedLocations, selectedLocations);
+                            // Enable the "location" dropdown
+                            locationDropdown.disabled = false;
+                        }
                     },
                     error: function (error) {
                         console.log('Error:', error);
+                        // Enable the "location" dropdown with a message on error
+                        locationDropdown.innerHTML = '<option value="" selected disabled>Error fetching locations</option>';
+                        locationDropdown.disabled = false;
                     }
                 });
-            }
-        }
-    
-        function populateLocationDropdown(locations) {
-            // Clear and populate the "location" dropdown with the received locations
-            var locationDropdown = $('#location');
-            locationDropdown.empty();
-    
-            locations.forEach(function (location) {
-                locationDropdown.append($('<option>', {
-                    value: location.name,  // Use the name as the option value
-                    text: location.name  // Display the name in the dropdown
-                }));
             });
         }
-    
-        // Bind the loadLocations function to the "change" event of the countries dropdown
-        $('#countries').on('change', function () {
-            loadLocations();
+    }
+
+    function populateLocationDropdown(locations, selectedLocations) {
+    // Clear and populate the "location" dropdown with the received locations
+    var locationDropdown = $('#location');
+    locationDropdown.empty();
+
+    // Create an array to keep track of added location names
+    var addedLocations = [];
+
+    // Iterate through the selected countries and populate locations
+    Object.keys(locations).forEach(function (country) {
+        locations[country].forEach(function (location) {
+            var locationName = location.name;
+
+            // Check if the location name has already been added
+            if (!addedLocations.includes(locationName)) {
+                locationDropdown.append($('<option>', {
+                    value: locationName,  // Use the name as the option value
+                    text: locationName  // Display the name in the dropdown
+                }));
+
+                // Add the location name to the addedLocations array
+                addedLocations.push(locationName);
+            }
         });
-    </script>
-    
-    
-    <script>
-        document.getElementById('clearButton').addEventListener('click', function (e) {
+    });
+
+    // Re-select the previously selected locations
+    locationDropdown.val(selectedLocations).trigger('change');
+}
+
+</script>
+
+<script>
+    document.getElementById('clearButton').addEventListener('click', function (e) {
         // Clear the entire form by resetting it
         document.getElementById('locationForm').reset();
         // Clear the Select2 dropdown selection for "location"
@@ -252,9 +329,7 @@
         localStorage.removeItem('selectedLocations'); // Clear selected locations
         localStorage.removeItem('selectedCountries'); // Clear selected countries
     });
-
-
-    </script>
+</script>
      
     <!-- JavaScript for tabbed interface -->
     <script>
