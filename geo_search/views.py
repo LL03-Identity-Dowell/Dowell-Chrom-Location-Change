@@ -263,7 +263,7 @@ class GetLocations(APIView):
                     print(data)
                     location_data[country] = data
                     # Cache the location data for future use
-                    cache.set(cache_key, location_data[country], timeout=None)  # Cache indefinitely
+                    cache.set(cache_key, location_data[country], timeout=86400)  # Cache indefinitely
                 except requests.exceptions.RequestException as e:
                     # Handle API request errors
                     print(f"API request error for {country}: {e}")
