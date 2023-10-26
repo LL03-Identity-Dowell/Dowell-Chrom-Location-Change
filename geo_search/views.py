@@ -30,7 +30,6 @@ class HomepageView(View):
     def get(self, request):
         # Attempt to get countries from cache
         countries = cache.get('cached_countries')
-        print(countries)
         search_results = []
         if countries is not None:
             print("Cache hit: Using cached countries")
@@ -231,3 +230,44 @@ def download_csv(request):
             csv_writer.writerow([city, title, link, snippet])
 
     return response
+
+
+
+class GetLocations(APIView):
+    def post(self, request):
+        selected_countries = request.data.get('selectedCountries', [])
+
+        location_data = {}
+
+        for country in selected_countries:
+            # Define the cache key based on the selected country
+            cache_key = f'locations_{country}'
+            cached_data = cache.get(cache_key)
+
+            if cached_data:
+                location_data[country] = cached_data
+            else:
+                # Fetch location data from the external API
+                api_key = settings.DOWELL_API_KEY
+                api_url = f'https://100074.pythonanywhere.com/get-coords-v3/?api_key={api_key}'
+                
+                data = {
+                    'country': country,
+                    'query': 'all'
+                }
+                try:
+                    response = requests.post(api_url,json=data)
+                    print("called")
+                    response.raise_for_status()
+                    data = response.json()
+                    print(data)
+                    location_data[country] = data
+                    # Cache the location data for future use
+                    cache.set(cache_key, location_data[country], timeout=None)  # Cache indefinitely
+                except requests.exceptions.RequestException as e:
+                    # Handle API request errors
+                    print(f"API request error for {country}: {e}")
+                    location_data[country] = []
+
+        return Response(location_data, status=status.HTTP_200_OK)
+    
