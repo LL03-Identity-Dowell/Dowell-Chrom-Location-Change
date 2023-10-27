@@ -112,7 +112,7 @@ class HomepageView(View):
 
         try:
             for city in location:  # Loop through selected locations
-                response = requests.post('http://127.0.0.1:8080/api/geo_location', data={
+                response = requests.post('https://geopositioning.uxlivinglab.online/api/geo_location', data={
                     "city": city,
                     'search_content': search_content,
                     'num_results': num_results
