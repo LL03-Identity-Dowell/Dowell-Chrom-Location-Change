@@ -1,7 +1,10 @@
+{% load static %}
 <!DOCTYPE html>
 <html>
 <head>
     <title>Location Selection</title>
+    <!-- Add Favicon -->
+    <link rel="icon" href="{% static 'images/logo_.png' %}" type="image/png">
     <!-- Add Tailwind CSS CDN -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <!-- Include Select2 CSS -->
@@ -9,7 +12,10 @@
 </head>
 <body class="bg-gray-100 p-4 sm:p-8">
     <div class="container mx-auto">
-        <h1 class="text-2xl font-semibold mb-4">Select a Location</h1>
+        <div class="flex items-center justify-between mb-4">
+            <h1 class="text-2xl font-semibold">Select a Location</h1>
+            <img src="{% static 'images/logo_.png' %}" alt="Company Logo" class="h-20 w-20">
+        </div>
         {{ error_message }}
         <div class="bg-white rounded-lg p-4 sm:p-8 shadow-md">
             <form id="locationForm" method="POST">
@@ -44,7 +50,7 @@
                 </div>
                 
                 <!-- "Set Location" button to submit the form -->
-                <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-blue-500 w-full sm:w-auto">
+                <button type="submit" class="bg-green-700 hover:bg-green-900 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-green-500 w-full sm:w-auto">
                     Search
                 </button>
                 <!-- "Clear" button to clear the form -->
