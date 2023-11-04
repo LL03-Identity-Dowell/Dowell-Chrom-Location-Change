@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-$o7a&r%rqvt6zhekb+3sh@bev9(5!_6b)v9j*at!vr)uc7(0%!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["geopositioning.uxlivinglab.online","127.0.0.1"]
+ALLOWED_HOSTS = ["geopositioning.uxlivinglab.online","127.0.0.1",'localhost']
 # API keys
 GOOGLE_API_KEY = config('GOOGLE_API_KEY', '')
 SEARCH_ENGINE_ID = config('SEARCH_ENGINE_ID','')
@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'geo_search',
+    'corsheaders',
 ]
 
 
@@ -52,6 +53,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -145,3 +147,13 @@ STATICFILES_DIRS = [
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+# Allow specific HTTP methods
+CORS_ALLOW_METHODS = ['GET', 'POST', 'OPTIONS']
+
+# Allow specific headers
+CORS_ALLOW_HEADERS = ['Content-Type', 'Authorization']

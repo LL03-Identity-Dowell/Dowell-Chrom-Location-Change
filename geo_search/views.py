@@ -120,7 +120,12 @@ class HomepageView(View):
 
                 if response.status_code == 200:
                     response_data = response.json()
-                    search_results.append({"city": city, "results": response_data.get('search_results', [])})
+                    search_results.append({
+                        "city": city,
+                        # "country": "Your_Country",  # Replace with the actual country if available
+                        "search_content": search_content,  # Include the search_content
+                        "results": response_data.get('search_results', [])
+                    })
                     logging.info(f"Received results for {city}")
                 else:
                     error_message = f"API request for {city} failed."
@@ -132,6 +137,8 @@ class HomepageView(View):
         request.session['search_results'] = search_results
 
         return render(request, 'index.html', {'countries': countries, 'search_results': search_results})
+
+
 
 
     

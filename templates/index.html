@@ -2,291 +2,301 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Location Selection</title>
-    <!-- Add Favicon -->
-    <link rel="icon" href="{% static 'images/logo_.png' %}" type="image/png">
-    <!-- Add Tailwind CSS CDN -->
+    <title>Location specific Search</title>
+    <link rel="icon" href="{% static 'images/logo.png' %}" type="image/png">
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <!-- Include Select2 CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            .w-full {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body class="bg-gray-100 p-4 sm:p-8">
-    <div class="container mx-auto">
-        <div class="flex items-center justify-between mb-4">
-            <h1 class="text-2xl font-semibold">Select a Location</h1>
-            <img src="{% static 'images/logo_.png' %}" alt="Company Logo" class="h-20 w-20">
+    <div class="container mx-auto flex flex-col sm:flex-row sm:flex-wrap">
+        <div class="w-full sm:w-1/2 p-4 left-column">
+            <div class="flex items-center justify-between mb-4">
+                <h1 class="text-2xl font-semibold">Location specific Search</h1>
+                <img src="{% static 'images/logo.png' %}" alt="Company Logo" class="h-20 w-20">
+            </div>
+            {{ error_message }}
+            <div class="bg-white rounded-lg p-4 sm:p-8 shadow-md">
+                <form id="locationForm" method="POST">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label for="countries" class="block text-gray-700">Select country(s)</label>
+                        <select name="countries" id="countries" class="w-full lg:w-1/2 xl:w-1/3 px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" multiple onchange="loadLocations()">
+                            {% for country in countries %}
+                                <option value="{{ country }}">{{ country }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div id="countriesMessage" style="color: red;"></div>
+                    <div class="mb-4">
+                        <label for="location" class="block text-gray-700">Select location(s)</label>
+                        <select name="location" id="location" class="w-full lg:w-1/2 xl:w-1/3 px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" multiple>
+                            <!-- Locations will be populated dynamically using JavaScript -->
+                        </select>
+                    </div>
+                    <div id="locationMessage" style="color: red;"></div>
+                    <div class="mb-4">
+                        <input type="text" name="search" id="search" class="w-full lg:w-1/2 xl:w-1/3 px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" type="text" placeholder="Search..." aria-label="Search" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="numResults" class="block text-gray-700">Number of Results</label>
+                        <input type="number" name="num_results" id="numResults" class="w-full lg:w-1/2 xl:w-1/3 px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" required>
+                    </div>
+                    <button type="submit" class="bg-green-700 hover:bg-green-900 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-green-500 w-full sm:w-auto">
+                        Search
+                    </button>
+                    <button type="button" id="clearButton" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-red-500 w-full sm:w-auto">
+                        Clear
+                    </button>
+                </form>
+                <div id="messageContainer" class="hidden bg-green-200 text-green-700 p-2 rounded mt-2">
+                    Searching...
+                </div>
+            </div>
         </div>
-        {{ error_message }}
-        <div class="bg-white rounded-lg p-4 sm:p-8 shadow-md">
-            <form id="locationForm" method="POST">
-                {% csrf_token %}
-                <!-- add the onchange event handler to the "countries" dropdown -->
-                <div class="mb-4">
-                    <label for="countries" class="block text-gray-700">Select country(s)</label>
-                    <select name="countries" id="countries" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" multiple onchange="loadLocations()">
-                        {% for country in countries %}
-                            <option value="{{ country }}">{{ country }}</option>
-                        {% endfor %}
-                    </select>                    
-                </div>
-                <div id="countriesMessage" style="color: red;"></div>
-
-                <div class="mb-4">
-                    <label for="location" class="block text-gray-700">Select location(s)</label>
-                    <select name="location" id="location" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" multiple>
-                        <!-- Locations will be populated dynamically using JavaScript -->
-                    </select>
-                </div>
-                <div id="locationMessage" style="color: red;"></div>
-
-                <div class="mb-4">
-                    <input type="text" name="search" id="search" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" type="text" placeholder="Search..." aria-label="Search" required>
-                </div>
-
-                <!-- Number of results input with Tailwind CSS classes -->
-                <div class="mb-4">
-                    <label for="numResults" class="block text-gray-700">Number of Results</label>
-                    <input type="number" name="num_results" id="numResults" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-blue-500" required>
-                </div>
-                
-                <!-- "Set Location" button to submit the form -->
-                <button type="submit" class="bg-green-700 hover:bg-green-900 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-green-500 w-full sm:w-auto">
-                    Search
-                </button>
-                <!-- "Clear" button to clear the form -->
-                <button type="button" id="clearButton" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-red-500 w-full sm:w-auto">
-                    Clear
-                </button>
-
-            </form>
-            
-            <!-- Message container to display the location set message -->
-            <div id="messageContainer" class="hidden bg-green-200 text-green-700 p-2 rounded mt-2">
-                Searching...
+        <div class="w-full sm:w-1/2 p-4 right-column">
+            <div class="bg-white rounded-lg p-4 sm:p-8 shadow-md">
+                <h2 class="text-2xl font-semibold mb-4">Location specific Search</h2>
+                <p>DoWell UX Living Lab will search in the web by positioning our server to the selected locations.</p>
+                <h2 class="text-2xl font-semibold mt-8 mb-4">How it works</h2>
+                <p>DoWell UX Living Lab will position the web server using the latitude and longitude of each location specified by the user and execute a search based on keywords.</p>
+                <h2 class="text-2xl font-semibold mt-8 mb-4">How to use</h2>
+                <p>Search Scenario - I am selling Yogurt, I want to analyze search results in different locations for my product.</p>
+                <p><strong>Disclaimer:</strong></p>
+                <p>We do not assume responsibility for the accuracy of the results. Variations from search engine results may occur. Use information at your own discretion.</p>
             </div>
         </div>
     </div>
-
-    <!-- Tabs for displaying results -->
     <div class="container mx-auto mt-8">
         <div class="flex flex-wrap">
             {% for location_results in search_results %}
-                <input type="radio" name="tabs" id="{{ location_results.city }}" class="hidden">
-                <label for="{{ location_results.city }}" class="cursor-pointer flex-1 px-4 py-2 rounded-t-lg bg-gray-200 text-gray-700 hover:bg-blue-500" onclick="changeTabColor(this)">
-                    {{ location_results.city }} Results
-                </label>
+            <input type="radio" name="tabs" id="{{ location_results.city }}" class="hidden">
+            <label for="{{ location_results.city }}" class="cursor-pointer flex-1 px-4 py-2 rounded-t-lg bg-gray-200 text-gray-700 hover:bg-blue-500" onclick="changeTabColor(this)">
+                {{ location_results.results|length }} Search result{% if location_results.results|length != 1 %}s{% endif %} for "{{ location_results.search_content }}" in {{ location_results.city }}, {{ location_results.country }}
+            </label>
             {% endfor %}
+
         </div>
         <div class="bg-white rounded-b-lg p-4 sm:p-8 shadow-md">
             {% for location_results in search_results %}
-                <div id="{{ location_results.city }}-content" class="tab-content hidden">
-                    <div class="container mx-auto p-4">
-                        <div class="space-y-4 sm:space-y-8">
-                            {% for result in location_results.results %}
-                                <div class="border-b border-gray-300 pb-4">
-                                    <h2 class="text-lg font-medium">
-                                        <a href="{{ result.link }}" target="_blank" class="text-blue-500 hover:underline">{{ result.title }}</a>
-                                    </h2>
-                                    <p class="text-gray-600">{{ result.snippet }}</p>
-                                    <div class="mt-2">
-                                        <div class="flex flex-wrap">
-                                            {% for image in result.images %}
-                                                <img src="{{ image.src }}" alt="{{ result.title }}" class="w-40 h-40 sm:w-60 sm:h-60 p-2" />
-                                            {% endfor %}
-                                        </div>
-                                    </div>
+            <div id="{{ location_results.city }}-content" class="tab-content hidden">
+                <div class="container mx-auto p-4">
+                    <div class="space-y-4 sm:space-y-8">
+                        {% for result in location_results.results %}
+                        <div class="border-b border-gray-300 pb-4">
+                            <h2 class="text-lg font-medium">
+                                <a href="{{ result.link }}" target="_blank" class="text-blue-500 hover:underline">{{ result.title }}</a>
+                            </h2>
+                            <p class="text-gray-600">{{ result.snippet }}</p>
+                            <div class="mt-2">
+                                <div class="flex flex-wrap">
+                                    {% for image in result.images %}
+                                    <img src="{{ image.src }}" alt="{{ result.title }}" class="w-40 h-40 sm:w-60 sm:h-60 p-2" />
+                                    {% endfor %}
                                 </div>
-                            {% endfor %}
+                            </div>
                         </div>
-                        <!-- Add a button/link to trigger CSV download -->
-                        <a href="{% url 'download' %}" id="downloadCSVButton" class="w-full bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-green-500" onclick="showDownloadSuccessMessage()">
-                            Download Search Results as CSV
-                        </a>
-                        <!-- Message container to display the download success message -->
-                        <div id="downloadMessageContainer" class="hidden bg-green-200 text-green-700 p-2 rounded mt-2">
-                            Successfully downloaded search results.
-                        </div>
+                        {% endfor %}
+                    </div>
+                    <a href="{% url 'download' %}" id="downloadCSVButton" class="w-full bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-green-500" onclick="showDownloadSuccessMessage()">
+                        Download Search Results as CSV
+                    </a>
+                    <div id="downloadMessageContainer" class="hidden bg-green-200 text-green-700 p-2 rounded mt-2">
+                        Successfully downloaded search results.
                     </div>
                 </div>
+            </div>
             {% endfor %}
         </div>
     </div>
 
-
-
-<script>
-    function changeTabColor(selectedLabel) {
+    <script>
+        function changeTabColor(selectedLabel) {
         const labels = document.querySelectorAll('label[for]');
         labels.forEach(label => {
-            label.classList.remove('bg-blue-500');
+        label.classList.remove('bg-blue-500');
         });
         selectedLabel.classList.add('bg-blue-500');
-    }
-</script>
+        }
+        </script>
+        
+        
+        
+        <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
-
-
-
-
-    <!-- Include jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- Include Select2 JavaScript -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
-
-   <!-- JavaScript to handle form submission and show message -->
-<script>
-// JavaScript to handle form submission and show message
-document.getElementById('locationForm').addEventListener('submit', function (e) {
-    // Show the message container
-    document.getElementById('messageContainer').style.display = 'block';
-
-    // Store the selected location values in local storage
-    var selectedLocations = $('#location').val();
-    localStorage.setItem('selectedLocations', JSON.stringify(selectedLocations));
-
-    // Store the selected countries in local storage
-    var selectedCountries = $('#countries').val();
-    localStorage.setItem('selectedCountries', JSON.stringify(selectedCountries));
-
-    localStorage.setItem('search', document.getElementById('search').value);
-    localStorage.setItem('numResults', document.getElementById('numResults').value);
-
-    // Allow the form to submit
-    // Remove the next line if you want to prevent form submission for this example
-    return true;
-});
-
-// JavaScript to populate form fields from local storage on page load
-window.addEventListener('load', function() {
-    // Populate the "countries" field from local storage
-    var selectedCountries = JSON.parse(localStorage.getItem('selectedCountries'));
-    
-    // Set the selected values for the "countries" field
-    if (selectedCountries) {
+        
+        <!-- Include jQuery -->
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <!-- Include Select2 JavaScript -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+        
+        <!-- JavaScript to handle form submission and show message -->
+        <script>
+        // JavaScript to handle form submission and show message
+        document.getElementById('locationForm').addEventListener('submit', function (e) {
+        // Show the message container
+        document.getElementById('messageContainer').style.display = 'block';
+        
+        // Store the selected location values in local storage
+        var selectedLocations = $('#location').val();
+        localStorage.setItem('selectedLocations', JSON.stringify(selectedLocations));
+        
+        // Store the selected countries in local storage
+        var selectedCountries = $('#countries').val();
+        localStorage.setItem('selectedCountries', JSON.stringify(selectedCountries));
+        
+        localStorage.setItem('search', document.getElementById('search').value);
+        localStorage.setItem('numResults', document.getElementById('numResults').value);
+        
+        // Allow the form to submit
+        // Remove the next line if you want to prevent form submission for this example
+        return true;
+        });
+        
+        // JavaScript to populate form fields from local storage on page load
+        window.addEventListener('load', function() {
+        // Populate the "countries" field from local storage
+        var selectedCountries = JSON.parse(localStorage.getItem('selectedCountries'));
+        
+        // Set the selected values for the "countries" field
+        if (selectedCountries) {
         $('#countries').val(selectedCountries).trigger('change');
-    }
-
-    // Populate the "location" field from local storage
-    var selectedLocations = JSON.parse(localStorage.getItem('selectedLocations'));
-
-    // Set the selected values for the "location" field
-    if (selectedLocations) {
+        }
+        
+        // Populate the "location" field from local storage
+        var selectedLocations = JSON.parse(localStorage.getItem('selectedLocations'));
+        
+        // Set the selected values for the "location" field
+        if (selectedLocations) {
         $('#location').val(selectedLocations).trigger('change');
-    }
-
-    // Populate other form fields
-    document.getElementById('search').value = localStorage.getItem('search') || '';
-    document.getElementById('numResults').value = localStorage.getItem('numResults') || '';
-});
-</script>
-
-<!-- JavaScript for countries -->
-<script>
-    $(document).ready(function () {
+        }
+        
+        // Populate other form fields
+        document.getElementById('search').value = localStorage.getItem('search') || '';
+        document.getElementById('numResults').value = localStorage.getItem('numResults') || '';
+        });
+        </script>
+        
+        <!-- JavaScript for countries -->
+        <script>
+        $(document).ready(function () {
         $('#countries').select2();
         $('#location').select2();
-
+        
         // Limit the number of selections in the "countries" dropdown to 10
         $('#countries').on('select2:select', function (e) {
-            var selectedCountries = $(this).val() || [];
-            if (selectedCountries.length > 10) {
-                selectedCountries.pop();
-                $(this).val(selectedCountries).trigger('change');
-
-                // Display the message for the "countries" dropdown on the screen in red
-                $('#countriesMessage').text("You can only select a maximum of 10 countries.").css('color', 'red');
-            } else {
-                // Clear the message and reset its color
-                $('#countriesMessage').text("").css('color', 'black');
-            }
+        var selectedCountries = $(this).val() || [];
+        if (selectedCountries.length > 10) {
+        selectedCountries.pop();
+        $(this).val(selectedCountries).trigger('change');
+        
+        // Display the message for the "countries" dropdown on the screen in red
+        $('#countriesMessage').text("You can only select a maximum of 10 countries.").css('color', 'red');
+        } else {
+        // Clear the message and reset its color
+        $('#countriesMessage').text("").css('color', 'black');
+        }
         });
-
+        
         // Limit the number of selections in the "location" dropdown to 10
         $('#location').on('select2:select', function (e) {
-            var selectedLocations = $(this).val() || [];
-            if (selectedLocations.length > 10) {
-                selectedLocations.pop();
-                $(this).val(selectedLocations).trigger('change');
-
-                // Display the message for the "location" dropdown on the screen in red
-                $('#locationMessage').text("You can only select a maximum of 10 locations.").css('color', 'red');
-            } else {
-                // Clear the message and reset its color
-                $('#locationMessage').text("").css('color', 'black');
-            }
+        var selectedLocations = $(this).val() || [];
+        if (selectedLocations.length > 10) {
+        selectedLocations.pop();
+        $(this).val(selectedLocations).trigger('change');
+        
+        // Display the message for the "location" dropdown on the screen in red
+        $('#locationMessage').text("You can only select a maximum of 10 locations.").css('color', 'red');
+        } else {
+        // Clear the message and reset its color
+        $('#locationMessage').text("").css('color', 'black');
+        }
         });
-    });
-</script>
-
-<script>
-   function loadLocations() {
-    // Get the selected countries from the dropdown
-    var selectedCountries = $('#countries').val();
-    var selectedLocations = JSON.parse(localStorage.getItem('selectedLocations')) || [];
-
-    // Check the number of selected countries
-    if (selectedCountries.length > 10) {
+        });
+        </script>
+        
+        <script>
+        function loadLocations() {
+        // Get the selected countries from the dropdown
+        var selectedCountries = $('#countries').val();
+        var selectedLocations = JSON.parse(localStorage.getItem('selectedLocations')) || [];
+        
+        // Check the number of selected countries
+        if (selectedCountries.length > 10) {
         $('#countriesMessage').text("You can only select a maximum of 10 countries.").css('color', 'red');
         return; // Don't make an API call if more than 10 countries are selected
-    }
-
-    var locationDropdown = document.getElementById('location');
-    locationDropdown.disabled = true;
-    locationDropdown.innerHTML = '<option value="" selected disabled style="font-style: italic; color: #999;">Fetching locations...</option>';
-
-    // Make an AJAX request to your backend server to fetch location data
-    $.ajax({
+        }
+        
+        var locationDropdown = document.getElementById('location');
+        locationDropdown.disabled = true;
+        locationDropdown.innerHTML = '<option value="" selected disabled style="font-style: italic; color: #999;">Fetching locations...</option>';
+        
+        // Make an AJAX request to your backend server to fetch location data
+        $.ajax({
         url: 'https://geopositioning.uxlivinglab.online/api/get-locations', // Replace with your actual endpoint
         type: 'POST',
         data: JSON.stringify({ selectedCountries: selectedCountries }),
         dataType: 'json',
         contentType: 'application/json',
         success: function (data) {
-            console.log('Data received:', data); // Add this line for debugging
-            populateLocationDropdown(data, selectedLocations);
-            locationDropdown.disabled = false;
+        console.log('Data received:', data); // Add this line for debugging
+        populateLocationDropdown(data, selectedLocations);
+        locationDropdown.disabled = false;
         },
         error: function (error) {
-            console.log('Error:', error);
-            locationDropdown.innerHTML = '<option value="" selected disabled>Error fetching locations</option>';
-            locationDropdown.disabled = false;
+        console.log('Error:', error);
+        locationDropdown.innerHTML = '<option value="" selected disabled>Error fetching locations</option>';
+        locationDropdown.disabled = false;
         }
-    });
-    }
-
-    
-    function populateLocationDropdown(locationData, selectedLocations) {
-    var locationDropdown = $('#location');
-    locationDropdown.empty();
-    var addedLocations = [];
-
-    // Iterate through each country
-    for (var countryName in locationData) {
+        });
+        }
+        
+        
+        function populateLocationDropdown(locationData, selectedLocations) {
+        var locationDropdown = $('#location');
+        locationDropdown.empty();
+        var addedLocations = [];
+        
+        // Iterate through each country
+        for (var countryName in locationData) {
         if (locationData.hasOwnProperty(countryName)) {
-            var countryData = locationData[countryName].data;
-            // Iterate through the locations within each country
-            countryData.forEach(function (location) {
-                var locationName = location.name;
-
-                if (!addedLocations.includes(locationName)) {
-                    locationDropdown.append($('<option>', {
-                        value: locationName,
-                        text: locationName
-                    }));
-                    addedLocations.push(locationName);
-                }
-            });
+        var countryData = locationData[countryName].data;
+        // Iterate through the locations within each country
+        countryData.forEach(function (location) {
+        var locationName = location.name;
+        
+        if (!addedLocations.includes(locationName)) {
+        locationDropdown.append($('<option>', {
+        value: locationName,
+        text: locationName
+        }));
+        addedLocations.push(locationName);
         }
-    }
-
-    locationDropdown.val(selectedLocations).trigger('change');
-    }
-
-    </script>
-    
-
-<script>
-    document.getElementById('clearButton').addEventListener('click', function (e) {
+        });
+        }
+        }
+        
+        locationDropdown.val(selectedLocations).trigger('change');
+        }
+        
+        </script>
+        
+        
+        <script>
+        document.getElementById('clearButton').addEventListener('click', function (e) {
         // Clear the entire form by resetting it
         document.getElementById('locationForm').reset();
         // Clear the Select2 dropdown selection for "location"
@@ -295,60 +305,61 @@ window.addEventListener('load', function() {
         $('#countries').val(null).trigger('change');
         // Hide the message container
         document.getElementById('messageContainer').style.display = 'none';
-
+        
         // Clear the stored values in local storage
         localStorage.removeItem('search');
         localStorage.removeItem('numResults');
         localStorage.removeItem('selectedLocations'); // Clear selected locations
         localStorage.removeItem('selectedCountries'); // Clear selected countries
-    });
-    
-    document.getElementById('clearButton').addEventListener('click', function (e) {
+        });
+        
+        document.getElementById('clearButton').addEventListener('click', function (e) {
         // Clear the search results by removing the entire tabs section
         const tabsSection = document.querySelector('.container.mx-auto.mt-8');
         tabsSection.parentNode.removeChild(tabsSection);
-
+        
         // Clear the download success message
         document.getElementById('downloadMessageContainer').classList.add('hidden');
-    });
-</script>
-     
-    <!-- JavaScript for tabbed interface -->
-    <script>
+        });
+        </script>
+        
+        <!-- JavaScript for tabbed interface -->
+        <script>
         // Function to switch tabs
         function switchTab(tabId) {
-            const tabs = document.querySelectorAll('.tab-content');
-            tabs.forEach(tab => {
-                tab.style.display = 'none';
-            });
-
-            const selectedTab = document.getElementById(tabId);
-            if (selectedTab) {
-                selectedTab.style.display = 'block';
-            }
+        const tabs = document.querySelectorAll('.tab-content');
+        tabs.forEach(tab => {
+        tab.style.display = 'none';
+        });
+        
+        const selectedTab = document.getElementById(tabId);
+        if (selectedTab) {
+        selectedTab.style.display = 'block';
+        }
         }
         // Add click event listeners to tab labels
         {% for location_results in search_results %}
-            document.getElementById('{{ location_results.city }}').addEventListener('click', function () {
-                switchTab('{{ location_results.city }}-content');
-            });
+        document.getElementById('{{ location_results.city }}').addEventListener('click', function () {
+        switchTab('{{ location_results.city }}-content');
+        });
         {% endfor %}
-
+        
         // Show the first tab by default
         switchTab('{{ search_results.0.city }}-content');
-    </script>
-
-    <!-- download success -->
-    <script>
+        </script>
+        
+        <!-- download success -->
+        <script>
         function showDownloadSuccessMessage() {
-            // Show the download success message container
-            document.getElementById('downloadMessageContainer').classList.remove('hidden');
-    
-            // Hide the message after a few seconds (optional)
-            setTimeout(function () {
-                document.getElementById('downloadMessageContainer').classList.add('hidden');
-            }, 3000); // Display for 3 seconds, you can adjust this duration
+        // Show the download success message container
+        document.getElementById('downloadMessageContainer').classList.remove('hidden');
+        
+        // Hide the message after a few seconds (optional)
+        setTimeout(function () {
+        document.getElementById('downloadMessageContainer').classList.add('hidden');
+        }, 3000); // Display for 3 seconds, you can adjust this duration
         }
-    </script>    
-</body>
-</html>
+        </script>
+        </body>
+        </html>
+        
