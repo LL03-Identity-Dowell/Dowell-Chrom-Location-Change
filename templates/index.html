@@ -62,7 +62,7 @@
                         Search
                     </button>
                     <button type="button" id="clearButton" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-red-500 w-full sm:w-auto">
-                        Clear
+                        Reset
                     </button>
                 </form>
                 <div id="messageContainer" class="hidden bg-green-200 text-green-700 p-2 rounded mt-2">
@@ -245,40 +245,41 @@
         </script>
         
         <script>
-        function loadLocations() {
-        // Get the selected countries from the dropdown
-        var selectedCountries = $('#countries').val();
-        var selectedLocations = JSON.parse(localStorage.getItem('selectedLocations')) || [];
-        
-        // Check the number of selected countries
-        if (selectedCountries.length > 10) {
-        $('#countriesMessage').text("You can only select a maximum of 10 countries.").css('color', 'red');
-        return; // Don't make an API call if more than 10 countries are selected
-        }
-        
-        var locationDropdown = document.getElementById('location');
-        locationDropdown.disabled = true;
-        locationDropdown.innerHTML = '<option value="" selected disabled style="font-style: italic; color: #999;">Fetching locations...</option>';
-        
-        // Make an AJAX request to your backend server to fetch location data
-        $.ajax({
-        url: 'https://geopositioning.uxlivinglab.online/api/get-locations', // Replace with your actual endpoint
-        type: 'POST',
-        data: JSON.stringify({ selectedCountries: selectedCountries }),
-        dataType: 'json',
-        contentType: 'application/json',
-        success: function (data) {
-        console.log('Data received:', data); // Add this line for debugging
-        populateLocationDropdown(data, selectedLocations);
-        locationDropdown.disabled = false;
-        },
-        error: function (error) {
-        console.log('Error:', error);
-        locationDropdown.innerHTML = '<option value="" selected disabled>Error fetching locations</option>';
-        locationDropdown.disabled = false;
-        }
-        });
-        }
+            function loadLocations() {
+                // Get the selected countries from the dropdown
+                var selectedCountries = $('#countries').val();
+                var selectedLocations = $('#location').val() || []; // Get currently selected locations
+                
+                // Check the number of selected countries
+                if (selectedCountries.length > 10) {
+                    $('#countriesMessage').text("You can only select a maximum of 10 countries.").css('color', 'red');
+                    return; // Don't make an API call if more than 10 countries are selected
+                }
+                
+                var locationDropdown = document.getElementById('location');
+                locationDropdown.disabled = true;
+                locationDropdown.innerHTML = '<option value="" selected disabled style="font-style: italic; color: #999;">Fetching locations...</option>';
+                
+                // Make an AJAX request to your backend server to fetch location data
+                $.ajax({
+                    url: 'https://geopositioning.uxlivinglab.online/api/get-locations', // Replace with your actual endpoint
+                    type: 'POST',
+                    data: JSON.stringify({ selectedCountries: selectedCountries }),
+                    dataType: 'json',
+                    contentType: 'application/json',
+                    success: function (data) {
+                        console.log('Data received:', data); // Add this line for debugging
+                        populateLocationDropdown(data, selectedLocations);
+                        locationDropdown.disabled = false;
+                    },
+                    error: function (error) {
+                        console.log('Error:', error);
+                        locationDropdown.innerHTML = '<option value="" selected disabled>Error fetching locations</option>';
+                        locationDropdown.disabled = false;
+                    }
+                });
+            }
+            
         
         
         function populateLocationDropdown(locationData, selectedLocations) {
