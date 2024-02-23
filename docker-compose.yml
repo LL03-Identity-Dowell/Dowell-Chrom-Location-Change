@@ -6,7 +6,7 @@ services:
     container_name: django
     build: .
     ports:
-      - 8001:8000
+      - 8000:8000
     expose:
       - "8000"
     volumes:
@@ -37,3 +37,6 @@ services:
   
 networks:
   webnet:
+    external: true
+
+    
