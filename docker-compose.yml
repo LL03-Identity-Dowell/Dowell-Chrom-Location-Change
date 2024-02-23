@@ -11,6 +11,7 @@ services:
       - "8000"
     volumes:
       - .:/myproject
+
     networks:
       - webnet
 
@@ -36,6 +37,12 @@ services:
       - webnet
 
   
+  redis:
+    image: redis:latest 
+    container_name: redis
+    networks:
+      - webnet
+    
 networks:
   webnet:
     external: true
