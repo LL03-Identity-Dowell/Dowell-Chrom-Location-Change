@@ -28,7 +28,7 @@ export const Search = () => {
     const [search, setSearch] = useState(false)
     const [results, setResults] = useState<SearchResult[]>([])
     const [activeIndex, setActiveIndex] = useState(0);
-    const [experience, setExperience] = useState(4)
+    const [experience, setExperience] = useState(0)
     const [coupon, setCoupon] = useState(false)
     const [couponValue, setCouponValue] = useState('')
     const [redeem, setRedeem] = useState(false)
@@ -66,7 +66,6 @@ export const Search = () => {
         });
         setSelectedCountries([]);
         setSelectedLocations([]);
-        handleSearch()
     }
 
 
@@ -94,8 +93,8 @@ export const Search = () => {
         try {
             const body = {
                 "selectedCountries": selectedCountries,
-                "offset": 2,
-                "limit": 1000
+                "offset": 0,
+                "limit": 17000
             };
             const response = await axios.post('https://t9xrrt0x-8000.euw.devtunnels.ms/api/get-locations', body);
             if (response.status === 200) {
@@ -157,10 +156,17 @@ export const Search = () => {
                 setRedeemMessage(response.data.message || 'Redemption failed'); // Set failure message
                 setCouponValue(''); // Clear coupon input
             }
+            setTimeout(() => {
+                setRedeemMessage('');
+            }, 5000);
         } catch (error) {
             console.error('Error while redeeming:', error);
             setRedeemMessage('Error while redeeming. Please try again.');
             setCouponValue(''); // Clear coupon input
+
+            setTimeout(() => {
+                setRedeemMessage('');
+            }, 5000);
         }
     };
 
@@ -180,7 +186,7 @@ export const Search = () => {
 
                 if (response.status === 200) {
                     const occurence = response.data?.occurrences;
-                    // setExperience(occurence)
+                    setExperience(occurence)
                 }
             }
 
@@ -207,10 +213,10 @@ export const Search = () => {
     console.log(results?.find((_, index) => index === activeIndex))
 
     return (
-        <div className=' w-full h-screen flex  '>
-            <div className={`w-full h-full p-5 space-y-5 flex space-x-20 ${verify ? 'opacity-30' : ''} `}>
-                <div className="flex justify-start w-1/2 h-full space-y-5 flex-col items-center">
-                    <div className='flex w-full justify-between h-[120px] p-2  items-center'>
+        <div className=' w-full h-screen flex flex-col md:flex-row  '>
+            <div className={`w-full md:h-full p-5 space-y-5 flex flex-col justify-center items-center md:flex-row md:space-x-20 ${verify ? 'opacity-30' : ''} `}>
+                <div className="flex justify-start w-full  md:w-1/2 h-full space-y-5 flex-col items-center">
+                    <div className='flex w-full justify-between md:h-[120px] p-2  items-center'>
                         <h1 className='text-[2rem] font-bold'>
                             Location specific Search
                         </h1>
@@ -369,15 +375,15 @@ export const Search = () => {
                                 />
                             </div>
                             <div className='flex space-x-5 w-full'>
-                                <button onClick={verifyUser} type="submit" className={`w-[100px] p-2 bg-green-700 hover:bg-green-900 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-green-500 ${search ? 'cursor-not-allowed opacity-80' : ''}`}>
+                                <button onClick={verifyUser} type="submit" className={`w-[100px] p-2 bg-green-700 hover:bg-green-900 text-white text-[12px] font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-green-500 ${search ? 'cursor-not-allowed opacity-60' : ''}`}>
                                     {search ? 'Searching...' : 'Search'}
                                 </button>
-                                <button type="reset" className='w-[100px] p-2 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring focus:border-red-500 ' onClick={resetForm}>Reset</button>
+                                <button type="reset" className='w-[100px] p-2 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none text-[12px] focus:ring focus:border-red-500 ' onClick={resetForm}>Reset</button>
                             </div>
 
                         </form>
 
-                        <div>
+                        <div className='h-full w-full'>
                             <div className="bg-white rounded-lg p-4 sm:p-8 shadow-md space-y-5">
                                 <h2 className="text-2xl font-semibold ">Location specific Search</h2>
                                 <p>DoWell UX Living Lab will search in the web by positioning our server to the selected locations.</p>
@@ -396,8 +402,8 @@ export const Search = () => {
 
                 </div >
 
-                <div className='w-1/2 h-full'>
-                    <div className='flex flex-wrap  rounded-t-lg justify-between items-center max-w-full gap-2 min-w-[60px] max-h-[250px] min-h-[100px] border-b-[3px] pb-3 mb-10'>
+                <div className='w-full md:w-1/2 h-full flex flex-col  justify-start '>
+                    <div className='flex flex-wrap max-w-full  rounded-t-lg justify-between items-center  md:max-w-full gap-2 md:min-w-[60px] max-h-[250px] min-h-[100px] border-b-[3px] pb-3 mb-10'>
                         {results.map((data, index) => (
                             <button onClick={() => setActiveIndex(index)} className={`${activeIndex === index ? "bg-[#3B82F6] text-white" : "bg-gray-400 text-black"} hover:bg-[#3B82F6] hover:text-white transition-all w-[30%] rounded-t-lg  min-h-[70px] max-h-[80px] max-w-full flex justify-center text-center px-3 py-2 items-center grow `} key={index}>
                                 <span>{`${data.results.length} search results for "${formData.searchContent}" in  ${data.city}`}</span>
@@ -407,12 +413,12 @@ export const Search = () => {
 
 
 
-                    <div className='bg-white w-full p-5 max-h-[850px] overflow-y-auto '>
+                    <div className='bg-white w-full bottom-0  p-5 max-w-full max-h-[850px] overflow-y-auto '>
                         {results?.find((_, index) => index === activeIndex)?.results?.map((result, index) => (
-                            <div className='flex flex-col max-h-[500px] border-b-2 p-3 space-y-4 ' key={index}>
-                                <Link href={result.link} className='text-[25px] text-blue-600 hover:text-red-500' target='_blank'>{result.title}</Link>
-                                <p className='text-[18px]'>{result.snippet}</p>
-                                <div className='w-[400px] h-[400px] border-2'>
+                            <div className='flex flex-col w-full max-h-[500px] border-b-2 p-3 space-y-4 ' key={index}>
+                                <Link href={result.link} className='md:text-[25px] text-[20px] text-blue-600 hover:text-red-500' target='_blank'>{result.title}</Link>
+                                <p className='md:text-[18px] text-[14px]'>{result.snippet}</p>
+                                <div className='md:w-[400px] md:h-[400px] w-[200px] h-[200px] border-2'>
                                     {result.images.length ? <img src={`${result.images[0].src}`} alt="" className='w-full h-full   object-cover object-center' /> : null}
                                 </div>
                             </div>
@@ -426,7 +432,7 @@ export const Search = () => {
             </div>
 
 
-            <div className={`fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 shadow-sm w-[500px] min-h-[350px] max-h-[450px] bg-white rounded-md ${verify ? 'flex' : 'hidden'} justify-start items-center flex-col`}>
+            <div className={`fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 shadow-sm w-[90%] md:w-[500px] min-h-[350px] max-h-[450px] bg-white rounded-md ${verify ? 'flex' : 'hidden'} justify-start items-center flex-col`}>
                 <div onClick={() => {
                     setVerify(false)
                 }} className='w-[20px] h-[20px] top-5 p-1 right-5 text-gray-400 font-normal rounded-md hover:text-white bg-transparent hover:bg-red-600 flex items-center absolute justify-center'>
@@ -452,7 +458,7 @@ export const Search = () => {
                         Continue
                     </button>
                     <button className={`${experience >= 4 ? "flex" : 'hidden'} bg-green-600 py-2 px-4 hover:bg-gray-400 text-white font-bold rounded-full`}>
-                        Contribute
+                        <Link href='https://dowellpay.online/contribute-payment/?product_number=UXLIVINGLAB004' target='_blank' >Contribute</Link>
                     </button>
                 </div>
 
@@ -474,7 +480,6 @@ export const Search = () => {
                 {redeemMessage && (
                     <p className={` my-5 flex flex-col text-center ${redeemMessage.includes("Redemption Successful") ? "text-green-600" : "text-red-500"}`}>
                         {redeemMessage}
-                        Click continue to make your search!!!
                     </p>
                 )}
             </div>

@@ -16,7 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`flex w-screen h-screen flex-col overflow-x-hidden justify-stretch items-stretch px-36 py-20 bg-[#F3F4F6]`}>
+      <body className={`flex w-screen h-screen flex-col overflow-x-hidden justify-stretch items-stretch md:px-36 md:py-20 bg-[#F3F4F6]`}>
         <main className={`grow`}>{children}</main>
       </body>
     </html>
