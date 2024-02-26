@@ -1,7 +1,16 @@
-import React, { use, useEffect, useState } from 'react';
+import React, { use, useEffect, useState, CSSProperties } from 'react';
 import axios from 'axios';
 import Link from 'next/link';
 import { CSVLink } from "react-csv";
+
+import { ClipLoader } from 'react-spinners';
+
+
+const override: CSSProperties = {
+    display: "block",
+    margin: "0 auto",
+    borderColor: "red",
+};
 
 const LIMIT = 1000 as const;
 
@@ -457,7 +466,15 @@ export const Search = () => {
                     </div>
                 </div>
 
-                <h1>Your Experience is: {experience} </h1>
+                <h1 className='flex space-x-2'>Your Experience is:
+                    {verify ? (
+                        <div className='ml-3 flex justify-center items-center'>
+                            <ClipLoader color="black" loading={verify} size={15} />
+                            Loading
+                        </div>
+                    ) : (
+                        `${experience}`
+                    )}   </h1>
                 <div className='flex w-[80%] justify-center gap-2 items-center my-10'>
                     <button className='bg-gray-400 py-2 px-4 hover:bg-red-600 text-white font-bold rounded-full' onClick={() => {
                         setVerify(false)
