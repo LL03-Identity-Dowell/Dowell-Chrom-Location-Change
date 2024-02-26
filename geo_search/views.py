@@ -218,35 +218,36 @@ class Chromeview(APIView):
         return total_results
     
 
-@csrf_exempt
-def download_csv(request):
-    # Get the search results from the session
-    search_results = request.session.get('search_results', [])
 
-    # Create a CSV response
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="search_results.csv"'
+class DownloadCSV(APIView):
 
-    
-    # Create a CSV writer
-    csv_writer = csv.writer(response)
-    # Write the header row
-    csv_writer.writerow(['City', 'Title', 'Link', 'Snippet'])
+    def post(self, request):
+        # Get the search results from the session
+        search_results = request.data.get('search_results', [])
+        print(search_results)
+        # Create a CSV response
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="search_results.csv"'
 
-    # Write the search results to the CSV file
-    for city_data in search_results:
-        city = city_data.get('city', '')  # Handle the case where 'city' is missing
-        results = city_data.get('results', [])
+        # Create a CSV writer
+        csv_writer = csv.writer(response)
+        # Write the header row
+        csv_writer.writerow(['City', 'Title', 'Link', 'Snippet'])
 
-        for result in results:
-            title = result.get('title', '')  # Handle the case where 'title' is missing
-            link = result.get('link', '')  # Handle the case where 'link' is missing
-            snippet = result.get('snippet', '')  # Handle the case where 'snippet' is missing
+        # Write the search results to the CSV file
+        for city_data in search_results:
+            city = city_data.get('city', '')  # Handle the case where 'city' is missing
+            results = city_data.get('results', [])
 
-            # Write the data to the CSV file
-            csv_writer.writerow([city, title, link, snippet])
+            for result in results:
+                title = result.get('title', '')  # Handle the case where 'title' is missing
+                link = result.get('link', '')  # Handle the case where 'link' is missing
+                snippet = result.get('snippet', '')  # Handle the case where 'snippet' is missing
 
-    return response
+                # Write the data to the CSV file
+                csv_writer.writerow([city, title, link, snippet])
+
+        return response
 
 
 
