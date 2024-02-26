@@ -19,18 +19,26 @@ from django.views.decorators.csrf import csrf_exempt
 import logging,json,tempfile
 from bs4 import BeautifulSoup
 from django.conf import settings
+from selenium import webdriver
 from django.core.cache import cache
 from django.utils.decorators import method_decorator
 logging.basicConfig(level=logging.INFO)
+from .utils.get_cordinates import GetCoordinates
+import os
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+import logging
+import requests
+from threading import Thread
+from .utils.experience import user_details_api,save_data,update_user_usage
+from threading import Lock
+occurrences_lock = Lock()  # Define a lock for occurrences
 
 
-
-@method_decorator(csrf_exempt, name='dispatch')
-class HomepageView(View):
-    def get(self, request):
+class GetCountries(APIView):
+    def get(self,request):
         # Attempt to get countries from cache
         countries = cache.get('cached_countries')
-        search_results = []
         if countries is not None:
             print("Cache hit: Using cached countries")
         else:
@@ -42,7 +50,7 @@ class HomepageView(View):
             dowell_api_key = settings.DOWELL_API_KEY
             dowell_testing_api_key = settings.DOWELL_TESTING_API_KEY
 
-            country_api_url = f'https://100074.pythonanywhere.com/get-countries-v3/?api_key={dowell_api_key}'
+            country_api_url = f'https://100074.pythonanywhere.com/get-countries-v3/?api_key={dowell_testing_api_key}'
             print(country_api_url)
             response = requests.post(country_api_url)
 
@@ -56,87 +64,88 @@ class HomepageView(View):
                         countries = sorted(countries)
                         # Store the countries in the cache with a timeout
                         cache.set('cached_countries', countries, 86400)
-                else:
-                    # Handle the case where the API request failed
-                    error_message = "Failed to retrieve country data from the API."
-                    return render(request, 'index.html', {'search_results': search_results, 'error_message': error_message})
-            else:
-                # Handle the case where the API request failed
-                error_message = "Failed to retrieve country data from the API."
-                return render(request, 'index.html', {'search_results': search_results, 'error_message': error_message})
+        return Response({
+            "success":True,
+            "countries":countries
+        })
 
-        # Use the cached or fetched countries
-        return render(request, 'index.html', {'countries': countries, 'search_results': search_results})
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class HomepageView(APIView):
     def post(self, request):
-        dowell_api_key = settings.DOWELL_API_KEY
-        dowell_testing_api_key = settings.DOWELL_TESTING_API_KEY
         search_results = []  # Initialize as an empty list
 
-        # Attempt to get countries from cache
-        countries = cache.get('cached_countries')
-
-        if countries is not None:
-            print("Cache hit: Using cached countries")
-        else:
-            print("Cache miss: Fetching countries from the API")
-        
-
-        if countries is None:
-            # If not found in cache, make an API request to get the list of countries
-            country_api_url = f'https://100074.pythonanywhere.com/get-countries-v3/?api_key={dowell_api_key}'
-            response = requests.post(country_api_url)
-
-            if response.status_code == 200:
-                data = response.json()
-                if 'data' in data and len(data['data']) > 0:
-                    countries = data['data'][0].get('countries', [])
-                    
-                    if countries:
-                        # Sort the list of countries alphabetically
-                        countries = sorted(countries)
-                        # Store the countries in the cache with a timeout
-                        cache.set('cached_countries', countries, 86400)
-                else:
-                    # Handle the case where the API request failed
-                    error_message = "Failed to retrieve country data from the API."
-                    return render(request, 'index.html', {'search_results': search_results, 'error_message': error_message})
-            else:
-                # Handle the case where the API request failed
-                error_message = "Failed to retrieve country data from the API."
-                return render(request, 'index.html', {'search_results': search_results, 'error_message': error_message})
-
-        # Continue with the rest of your post method logic using the cached or fetched countries
-        location = request.POST.getlist('location', [])
-        search_content = request.POST.get('search', '')
-        num_results = request.POST.get('num_results')
+        # Extract data from the request
+        location = request.data.get('location', [])
+        search_content = request.data.get('search', '')
+        num_results = request.data.get('num_results')
 
         try:
             for city in location:  # Loop through selected locations
-                response = requests.post('https://geopositioning.uxlivinglab.online/api/geo_location', data={
+                response = requests.post('http://127.0.0.1:8000/api/geo_location', data={
                     "city": city,
                     'search_content': search_content,
                     'num_results': num_results
                 })
-
+                print(response.json())
                 if response.status_code == 200:
                     response_data = response.json()
                     search_results.append({
                         "city": city,
-                        # "country": "Your_Country",  # Replace with the actual country if available
-                        "search_content": search_content,  # Include the search_content
+                        "search_content": search_content,
                         "results": response_data.get('search_results', [])
                     })
                     logging.info(f"Received results for {city}")
                 else:
                     error_message = f"API request for {city} failed."
-                    return render(request, 'index.html', {'countries': countries,'error_message': error_message})
+                    return Response({
+                        "success": False,
+                        "message": error_message
+                    })
         except Location.DoesNotExist:
             error_message = f"Selected location does not exist."
-            return render(request, 'index.html', {'countries': countries,'error_message': error_message})
+            return Response({
+                "success": False,
+                "message": error_message
+            })
 
         request.session['search_results'] = search_results
 
-        return render(request, 'index.html', {'countries': countries, 'search_results': search_results})
+        # Call the function to hit an API with user details
+        email = request.data.get('email')
+        occurrences = request.data.get('occurrences')
+
+        def execute_threaded_tasks(email, occurrences,search_results):
+            api_response = user_details_api(email, occurrences)
+            print("---got api response---")
+            api_response_data = api_response.json()
+            if "success" in api_response_data and api_response_data["success"]:
+                print("---returning response---")
+                # Run functions in threads
+                print("this is res from view")
+                with occurrences_lock:
+                    occurrences += 1
+                experienced_date = Thread(target=save_data, args=(email, search_results))
+                experienced_date.daemon = True
+                experienced_date.start()
+                print("adding")
+                print(occurrences)
+                print("added")
+                experienced_reduce = Thread(target=update_user_usage, args=(email, occurrences))
+                experienced_reduce.daemon = True
+                experienced_reduce.start()
+                # Return PPP calculation response to the frontend
+                print("---everything worked---")
+
+        threading_tasks_thread = Thread(target=execute_threaded_tasks, args=(email, occurrences,search_results))
+        threading_tasks_thread.daemon = True
+        threading_tasks_thread.start()
+
+        return Response({
+            'success': True,
+            'search_results': search_results
+        })
 
 
 
@@ -145,6 +154,7 @@ class HomepageView(View):
 @method_decorator(csrf_exempt, name='dispatch')
 class Chromeview(APIView):
     def post(self, request, format=None):
+        print("called")
         search_content = request.data.get('search_content', '')  # Access search_content as a string
         num_results = request.data.get('num_results')
 
@@ -243,12 +253,14 @@ def download_csv(request):
 class GetLocations(APIView):
     def post(self, request):
         selected_countries = request.data.get('selectedCountries', [])
+        offset = request.data.get("offset")
+        limit = request.data.get("limit")
 
         location_data = {}
 
         for country in selected_countries:
-            # Define the cache key based on the selected country
-            cache_key = f'locations_{country}'
+            # Define the cache key based on the selected country, offset, and limit
+            cache_key = f'locations_{country}_offset_{offset}_limit_{limit}'
             cached_data = cache.get(cache_key)
 
             if cached_data:
@@ -260,10 +272,12 @@ class GetLocations(APIView):
                 
                 data = {
                     'country': country,
-                    'query': 'all'
+                    'query': 'all',
+                    'offset': offset,
+                    'limit': limit
                 }
                 try:
-                    response = requests.post(api_url,json=data)
+                    response = requests.post(api_url, json=data)
                     print("called")
                     response.raise_for_status()
                     data = response.json()
@@ -277,4 +291,55 @@ class GetLocations(APIView):
                     location_data[country] = []
 
         return Response(location_data, status=status.HTTP_200_OK)
+
     
+
+class LaunchBrowser(APIView):
+    def post(self, request):
+        print(request.data)
+        url = request.data.get('url')
+        locations = request.data.get('location', [])
+        print(url)
+        print(locations)  # Changed variable name to 'locations' for consistency
+        
+        # Validate 'url' and 'location' inputs (add your validation logic)
+        if not url or not locations:  # Updated variable name to 'locations'
+            return Response({'error': 'Invalid URL or Location data provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        for location in locations:  # Loop through each location
+            print(location)
+            coordinates = GetCoordinates(location)
+            print(coordinates)
+            
+            if coordinates:
+                try:
+                    latitude = coordinates.get('lat')
+                    longitude = coordinates.get('lng')
+    
+                    driver = webdriver.Chrome()
+    
+                    # Construct the JavaScript function to set the location
+                    script = f"navigator.geolocation.getCurrentPosition = function(success) {{ success({{ coords: {{ latitude: {latitude}, longitude: {longitude} }} }}); }};"
+                    
+                    # Execute the JavaScript to set the location
+                    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+                        "source": script
+                    })
+                    
+                    # Navigate to the URL
+                    driver.get(url)
+                    
+                    # Keep the browser open until explicitly closed
+                    input("Press Enter to close the browser...")  # This waits for user input to close the browser
+                    
+                    driver.quit()  # Close the browser explicitly
+                    
+                except Exception as e:
+                    print(f"Error setting browser location for {location}: {e}")
+                    # Handling individual location errors, you might want to customize this response
+                    
+            else:
+                print(f"Failed to get coordinates for {location}")
+                # Handling individual location coordinate retrieval failures
+
+        return Response({'message': 'All locations processed successfully'}, status=status.HTTP_200_OK)

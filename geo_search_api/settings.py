@@ -30,6 +30,7 @@ DEBUG = True
 ALLOWED_HOSTS = ["geopositioning.uxlivinglab.online","127.0.0.1",'localhost']
 # API keys
 GOOGLE_API_KEY = config('GOOGLE_API_KEY', '')
+NEW_GOOGLE_KEY = config('NEW_GOOGLE_KEY')
 SEARCH_ENGINE_ID = config('SEARCH_ENGINE_ID','')
 DOWELL_API_KEY = config('DOWELL_API_KEY','')
 DOWELL_TESTING_API_KEY = config('DOWELL_TESTING_API_KEY','')
