@@ -1,6 +1,7 @@
 import React, { use, useEffect, useState } from 'react';
 import axios from 'axios';
 import Link from 'next/link';
+import { CSVLink } from "react-csv";
 
 const LIMIT = 1000 as const;
 
@@ -14,6 +15,10 @@ interface SearchResult {
     }[];
     search_content: string
 }
+
+
+
+
 
 export const Search = () => {
     const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
@@ -34,12 +39,13 @@ export const Search = () => {
     const [redeem, setRedeem] = useState(false)
     const [verify, setVerify] = useState(false)
     const [redeemMessage, setRedeemMessage] = useState('')
+    const [csvresults, setCsvResults] = useState<any[]>([])
 
     const handleCouponChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setCouponValue(e.target.value)
     }
 
-
+    const csvData = csvresults
     const [formData, setFormData] = useState({
         searchContent: '',
         numResults: 0,
@@ -88,7 +94,6 @@ export const Search = () => {
         }
     };
 
-
     const fetchLocation = async () => {
         try {
             const body = {
@@ -124,8 +129,11 @@ export const Search = () => {
             if (response.status === 200) {
 
                 const newSearchResults = response.data?.search_results;
-                setResults(newSearchResults as SearchResult[])
 
+                setResults(newSearchResults as SearchResult[])
+                const mergedResults = Object.values(newSearchResults).reduce((prev: any, curr: any) =>
+                    prev.concat(curr?.results?.map((item: any) => ({ ...item, city: curr?.city ?? "", images: item?.images?.map((image: any) => image?.src ?? "")?.join(",") }))), []);
+                setCsvResults(mergedResults as any[]);
                 setSearch(false)
             }
         } catch (error) {
@@ -210,7 +218,6 @@ export const Search = () => {
         fetchLocation()
     }, [selectedCountries])
 
-    console.log(results?.find((_, index) => index === activeIndex))
 
     return (
         <div className=' w-full h-screen flex flex-col md:flex-row  '>
@@ -425,8 +432,11 @@ export const Search = () => {
 
                         ))}
 
-
+                        <button className={`p-3 hover:text-green-500 text-[20px] font-bold `} >
+                            <CSVLink data={csvresults}>Click to download search results</CSVLink>
+                        </button>
                     </div>
+
 
                 </div>
             </div>
