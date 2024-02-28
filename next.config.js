@@ -1,10 +1,9 @@
 module.exports = {
-    exportPathMap: function () {
-      return {
-        '/': { page: '/' },
-      };
-    },
-  };
-  //
-  //
-  //
+  // Other configuration options
+  generateStaticParams: async () => {
+    return {
+      '/': { page: '/' },
+      // Add other routes if needed
+    };
+  },
+};
