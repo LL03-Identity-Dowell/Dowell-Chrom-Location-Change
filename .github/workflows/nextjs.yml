@@ -1,0 +1,28 @@
+name: Next.js Deployment
+
+on:
+  push:
+    branches:
+      - frontend
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          ref: frontend  # Checkout the 'frontend' branch
+
+      - name: Install dependencies and build
+        run: |
+          npm install
+          npm run build
+
+      - name: Deploy to server or platform
+        # Add your deployment step here. This could involve copying the built files to a server or deploying to a platform like Vercel, Netlify, etc.
+        # Example:
+        run: |
+          # Example command to deploy to a server
+          scp -r ./build user@example.com:/path/to/deployment/directory
