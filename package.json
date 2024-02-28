@@ -5,6 +5,8 @@
   "homepage": "https://LL03-Identity-Dowell.github.io/Dowell-Chrome-Location-Change",
   "scripts": {
     "dev": "next dev",
+    "static": "next build && next export && touch ./out/.nojekyll && echo 'https://ll03-identity-dowell.github.io/Dowell-Chrome-Location-Change/' > ./out/CNAME",
+    "deploy": "gh-pages -d out -t true",
     "build": "next build && next export",
     "export": "next export -o ./",
     "start": "next start",
