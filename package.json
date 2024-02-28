@@ -2,9 +2,11 @@
   "name": "location-specific-search-app",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://LL03-Identity-Dowell.github.io/Dowell-Chrome-Location-Change",
   "scripts": {
     "dev": "next dev",
     "build": "next build && next export",
+    "export": "next export",
     "start": "next start",
     "lint": "next lint"
 },
