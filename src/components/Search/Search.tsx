@@ -436,7 +436,7 @@ export const Search = () => {
                                 <Link href={result.link} className='md:text-[25px] text-[20px] text-blue-600 hover:text-red-500' target='_blank'>{result.title}</Link>
                                 <p className='md:text-[18px] text-[14px]'>{result.snippet}</p>
                                 <div className='md:w-[400px] md:h-[400px] w-[200px] h-[200px] border-2'>
-                                    {result.images.length ? <img src={`${result.images[0].src}`} alt="" className='w-full h-full   object-cover object-center' /> : null}
+                                    {result.images.length ? <Image src={`${result.images[0].src}`} alt="" className='w-full h-full   object-cover object-center' /> : null}
                                 </div>
                             </div>
 
