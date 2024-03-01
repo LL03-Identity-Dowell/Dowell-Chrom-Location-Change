@@ -1,8 +1,9 @@
 import React, { use, useEffect, useState, CSSProperties } from 'react';
 import axios from 'axios';
 import Link from 'next/link';
+import Image from 'next/image'
 import { CSVLink } from "react-csv";
-
+import logo from '../../../public/company logo.png';
 import { ClipLoader } from 'react-spinners';
 
 
@@ -237,7 +238,7 @@ export const Search = () => {
                             Location specific Search
                         </h1>
                         <div className='w-[100px] h-[100px]'>
-                            <img src='/company logo.png' alt="" className='w-full h-full' />
+                            <Image src={logo} alt="" className='w-full h-full' />
                         </div>
                     </div>
                     <div className='bg-white w-full flex p-5  space-y-5 flex-col'>
@@ -462,7 +463,7 @@ export const Search = () => {
                         Location specific Search
                     </h1>
                     <div className='w-[100px] h-[100px]'>
-                        <img src='/company logo.png' alt="" className='w-full h-full' />
+                        <Image src={logo} alt="" className='w-full h-full' />
                     </div>
                 </div>
 
