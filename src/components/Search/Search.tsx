@@ -209,12 +209,16 @@ export const Search = () => {
                     setExperience(occurence)
                     setIsLoading(false)
                 }
+                else {
+                    setIsLoading(false)
+                }
             }
 
 
 
         } catch (error) {
             console.error('Error fetching search results:', error);
+            setIsLoading(false)
 
         }
     }
@@ -469,15 +473,15 @@ export const Search = () => {
                     </div>
                 </div>
 
-                <h1 className='flex space-x-2'>
+                <div className='flex  justify-center items-center text-cener'>
                     {isLoading ? (
                         <div className='ml-3 flex justify-center items-center'>
-                            <ClipLoader color="black" loading={isLoading} size={15} />
-                            Loading
+                            <ClipLoader color="black" loading={isLoading} size={17} />
+                            <h1>Loading</h1>
                         </div>
                     ) : (
-                        ` You have used  Location specific search ${experience} times`
-                    )}   </h1>
+                        <h1 className='w-full flex justify-center items-center text-center'>You have used Location Specific Search {experience} times</h1>
+                    )}   </div>
                 <div className='flex w-[80%] justify-center gap-2 items-center my-10'>
                     <button className='bg-gray-400 py-2 px-4 hover:bg-red-600 text-white font-bold rounded-full' onClick={() => {
                         setVerify(false)
