@@ -469,14 +469,14 @@ export const Search = () => {
                     </div>
                 </div>
 
-                <h1 className='flex space-x-2'>Your Experience is:
+                <h1 className='flex space-x-2'>
                     {isLoading ? (
                         <div className='ml-3 flex justify-center items-center'>
                             <ClipLoader color="black" loading={isLoading} size={15} />
                             Loading
                         </div>
                     ) : (
-                        ` ${experience}`
+                        ` You have used  Location specific search ${experience} times`
                     )}   </h1>
                 <div className='flex w-[80%] justify-center gap-2 items-center my-10'>
                     <button className='bg-gray-400 py-2 px-4 hover:bg-red-600 text-white font-bold rounded-full' onClick={() => {
