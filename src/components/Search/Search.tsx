@@ -50,6 +50,7 @@ export const Search = () => {
     const [verify, setVerify] = useState(false)
     const [redeemMessage, setRedeemMessage] = useState('')
     const [csvresults, setCsvResults] = useState<any[]>([])
+    const [isLoading, setIsLoading] = useState(false)
 
     const handleCouponChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setCouponValue(e.target.value)
@@ -191,6 +192,7 @@ export const Search = () => {
     const verifyUser = async () => {
         try {
             setVerify(true)
+            setIsLoading(true)
             const body = {
                 "product_number": "UXLIVINGLAB004",
                 "email": formData.email
@@ -205,6 +207,7 @@ export const Search = () => {
                 if (response.status === 200) {
                     const occurence = response.data?.occurrences;
                     setExperience(occurence)
+                    setIsLoading(false)
                 }
             }
 
@@ -221,7 +224,6 @@ export const Search = () => {
     useEffect(() => {
         fetchCountries()
 
-        // fetchSearchResults()
     }, [])
 
     useEffect(() => {
@@ -468,13 +470,13 @@ export const Search = () => {
                 </div>
 
                 <h1 className='flex space-x-2'>Your Experience is:
-                    {verify ? (
+                    {isLoading ? (
                         <div className='ml-3 flex justify-center items-center'>
-                            <ClipLoader color="black" loading={verify} size={15} />
+                            <ClipLoader color="black" loading={isLoading} size={15} />
                             Loading
                         </div>
                     ) : (
-                        `${experience}`
+                        ` ${experience}`
                     )}   </h1>
                 <div className='flex w-[80%] justify-center gap-2 items-center my-10'>
                     <button className='bg-gray-400 py-2 px-4 hover:bg-red-600 text-white font-bold rounded-full' onClick={() => {
