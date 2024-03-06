@@ -101,7 +101,7 @@ class HomepageView(APIView):
                         "success": False,
                         "message": error_message
                     })
-        except location.DoesNotExist:
+        except:
             error_message = f"Selected location does not exist."
             return Response({
                 "success": False,
