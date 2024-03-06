@@ -13,8 +13,6 @@ from rest_framework import generics, status,viewsets
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from django.shortcuts import render,get_object_or_404
-from .serializers import LocationSerializer,CountrySerializer
-from .models import Location,Country
 from django.views.decorators.csrf import csrf_exempt
 import logging,json,tempfile
 from bs4 import BeautifulSoup
@@ -103,7 +101,7 @@ class HomepageView(APIView):
                         "success": False,
                         "message": error_message
                     })
-        except Location.DoesNotExist:
+        except location.DoesNotExist:
             error_message = f"Selected location does not exist."
             return Response({
                 "success": False,
