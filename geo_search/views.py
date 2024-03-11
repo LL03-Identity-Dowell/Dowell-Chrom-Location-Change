@@ -41,8 +41,6 @@ class GetCountries(APIView):
             print("Cache hit: Using cached countries")
         else:
             print("Cache miss: Fetching countries from the API")
-
-
         if countries is None:
             # If not found in cache, make an API request to get the list of countries
             dowell_api_key = settings.DOWELL_API_KEY
