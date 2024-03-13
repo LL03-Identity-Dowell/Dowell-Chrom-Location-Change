@@ -98,7 +98,7 @@ export const Search = () => {
 
     const fetchCountries = async () => {
         try {
-            const response = await axios.get('https://t9xrrt0x-8000.euw.devtunnels.ms/api/get-countries');
+            const response = await axios.get('https://89fnkjds-8000.euw.devtunnels.ms/api/get-countries');
             setAllCountries(response.data.countries);
         } catch (error) {
             console.error('Error fetching countries:', error);
@@ -112,7 +112,7 @@ export const Search = () => {
                 "offset": 0,
                 "limit": 17000
             };
-            const response = await axios.post('https://t9xrrt0x-8000.euw.devtunnels.ms/api/get-locations', body);
+            const response = await axios.post('https://89fnkjds-8000.euw.devtunnels.ms/api/get-locations', body);
             if (response.status === 200) {
                 const locations = response.data;
                 const mergedLocations = Object.values(locations).reduce((prev: any, curr: any) =>
@@ -136,7 +136,7 @@ export const Search = () => {
                 "email": formData.email,
                 "occurrences": experience
             };
-            const response = await axios.post('https://t9xrrt0x-8000.euw.devtunnels.ms/api/', body);
+            const response = await axios.post('https://89fnkjds-8000.euw.devtunnels.ms/api/', body);
             if (response.status === 200) {
 
                 const newSearchResults = response.data?.search_results;
