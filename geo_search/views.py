@@ -106,8 +106,6 @@ class HomepageView(APIView):
                 "message": error_message
             })
 
-        request.session['search_results'] = search_results
-
         # Call the function to hit an API with user details
         email = request.data.get('email')
         occurrences = request.data.get('occurrences')

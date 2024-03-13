@@ -34,6 +34,11 @@ services:
       - 443:443
     networks:
       - webnet
+  redis:
+    image: redis:latest 
+    container_name: redis
+    networks:
+      - webnet
 
   
 networks:
