@@ -77,34 +77,29 @@ class HomepageView(APIView):
         search_content = request.data.get('search', '')
         num_results = request.data.get('num_results')
 
-        try:
-            for city in location:  # Loop through selected locations
-                response = requests.post('https://geopositioning.uxlivinglab.online/api/geo_location', data={
+        for city in location:  # Loop through selected locations
+            # Call the Chromeview class directly
+            chrome_view = Chromeview()
+            results = chrome_view.perform_search(city, search_content, num_results)
+
+            if results:
+                search_results.append({
                     "city": city,
-                    'search_content': search_content,
-                    'num_results': num_results
+                    "search_content": search_content,
+                    "results": results
                 })
-                print(response.json())
-                if response.status_code == 200:
-                    response_data = response.json()
-                    search_results.append({
-                        "city": city,
-                        "search_content": search_content,
-                        "results": response_data.get('search_results', [])
-                    })
-                    logging.info(f"Received results for {city}")
-                else:
-                    error_message = f"API request for {city} failed."
-                    return Response({
-                        "success": False,
-                        "message": error_message
-                    })
-        except:
-            error_message = f"Selected location does not exist."
-            return Response({
-                "success": False,
-                "message": error_message
-            })
+                logging.info(f"Received results for {city}")
+            else:
+                error_message = f"API request for {city} failed."
+                return Response({
+                    "success": False,
+                    "message": error_message
+                })
+
+        return Response({
+            'success': True,
+            'search_results': search_results
+        })
 
         # Call the function to hit an API with user details
         email = request.data.get('email')
