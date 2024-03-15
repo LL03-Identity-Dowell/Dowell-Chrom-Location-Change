@@ -95,12 +95,6 @@ class HomepageView(APIView):
                     "success": False,
                     "message": error_message
                 })
-
-        return Response({
-            'success': True,
-            'search_results': search_results
-        })
-
         # Call the function to hit an API with user details
         email = request.data.get('email')
         occurrences = request.data.get('occurrences')
@@ -130,7 +124,6 @@ class HomepageView(APIView):
         threading_tasks_thread = Thread(target=execute_threaded_tasks, args=(email, occurrences,search_results))
         threading_tasks_thread.daemon = True
         threading_tasks_thread.start()
-
         return Response({
             'success': True,
             'search_results': search_results
