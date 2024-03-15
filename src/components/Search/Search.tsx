@@ -98,7 +98,7 @@ export const Search = () => {
 
     const fetchCountries = async () => {
         try {
-            const response = await axios.get('https://t9xrrt0x-8000.euw.devtunnels.ms/api/get-countries');
+            const response = await axios.get('https://geopositioning.uxlivinglab.online/api/get-countries');
             setAllCountries(response.data.countries);
         } catch (error) {
             console.error('Error fetching countries:', error);
@@ -112,7 +112,7 @@ export const Search = () => {
                 "offset": 0,
                 "limit": 17000
             };
-            const response = await axios.post('https://t9xrrt0x-8000.euw.devtunnels.ms/api/get-locations', body);
+            const response = await axios.post('https://geopositioning.uxlivinglab.online/api/get-locations', body);
             if (response.status === 200) {
                 const locations = response.data;
                 const mergedLocations = Object.values(locations).reduce((prev: any, curr: any) =>
@@ -136,7 +136,7 @@ export const Search = () => {
                 "email": formData.email,
                 "occurrences": experience
             };
-            const response = await axios.post('https://t9xrrt0x-8000.euw.devtunnels.ms/api/', body);
+            const response = await axios.post('https://geopositioning.uxlivinglab.online/api/', body);
             if (response.status === 200) {
 
                 const newSearchResults = response.data?.search_results;
@@ -145,6 +145,8 @@ export const Search = () => {
                 const mergedResults = Object.values(newSearchResults).reduce((prev: any, curr: any) =>
                     prev.concat(curr?.results?.map((item: any) => ({ ...item, city: curr?.city ?? "", images: item?.images?.map((image: any) => image?.src ?? "")?.join(",") }))), []);
                 setCsvResults(mergedResults as any[]);
+                setSearch(false)
+            } else {
                 setSearch(false)
             }
         } catch (error) {
@@ -285,7 +287,6 @@ export const Search = () => {
                                         onClick={() => setShowCountryDropdown(prevState => !prevState)}
                                         onChange={(e) => {
                                             setCountry(e.target.value);
-                                            setShowCountryDropdown(true)
                                         }}
                                         className='relative z-[10] w-full border-0 outline-0 grow' />
                                     <div className={`absolute w-full h-[auto] max-h-[350px] ${showCountryDropdown ? 'opacity-1 pointer-events-auto' : 'opacity-0 pointer-events-none'} transition-all left-0 z-[20] top-[105%] bg-white px-0 py-0 flex flex-col gap-[2px] overflow-y-auto border-2 border-gray-300 rounded-md`}>
@@ -296,6 +297,7 @@ export const Search = () => {
                                                     if (selectedCountries.length < 10 || selectedCountries.includes(country)) {
                                                         setSelectedCountries((prevCountries) => prevCountries.includes(country) ? prevCountries.filter(_country => _country !== country) : [...prevCountries, country]);
                                                         setCountry("");
+                                                        setShowCountryDropdown(false)
                                                     }
                                                 }}
                                                 key={index}
@@ -354,6 +356,7 @@ export const Search = () => {
                                                     if (selectedLocations.length < 10 || selectedLocations.includes(location)) {
                                                         setSelectedLocations((prevLocations) => prevLocations.includes(location) ? prevLocations.filter(_location => _location !== location) : [...prevLocations, location]);
                                                         setLocation("");
+                                                        setShowLocationDropdown(false)
                                                     }
                                                 }}
                                                 key={index}
@@ -441,8 +444,8 @@ export const Search = () => {
                             <div className='flex flex-col w-full max-h-[500px] border-b-2 p-3 space-y-4 ' key={index}>
                                 <Link href={result.link} className='md:text-[25px] text-[20px] text-blue-600 hover:text-red-500' target='_blank'>{result.title}</Link>
                                 <p className='md:text-[18px] text-[14px]'>{result.snippet}</p>
-                                <div className='md:w-[400px] md:h-[400px] w-[200px] h-[200px] border-2'>
-                                    {result.images.length ? <Image src={`${result.images[0].src}`} alt="" className='w-full h-full   object-cover object-center' /> : null}
+                                <div className='md:w-[400px] md:h-[400px] w-[200px] flex justify-start  h-[200px] border-2'>
+                                    {result.images.length ? <Image src={`${result.images[0].src}`} width={400} height={400} alt="" className='w-full h-full   object-cover object-center' /> : null}
                                 </div>
                             </div>
 
