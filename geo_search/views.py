@@ -297,29 +297,43 @@ class LaunchBrowser(APIView):
             
             if coordinates:
                 try:
+                    # Extract latitude from coordinates dictionary and remove any non-numeric characters
                     latitude = coordinates.get('lat').split(' ')[0]
+                    while not latitude[-1].isnumeric():
+                        latitude = latitude[:-1]
+
+                    # Convert latitude to float
                     latitude = float(latitude)
 
+                    # Extract longitude from coordinates dictionary and remove any non-numeric characters
                     longitude = coordinates.get('lng').split(' ')[0]
+                    while not longitude[-1].isnumeric():
+                        longitude = longitude[:-1]
+
+                    # Convert longitude to float
                     longitude = float(longitude)
 
-                    print("Latitude:", latitude)
-                    print("Longitude:", longitude)
-    
+                    # Initialize a Chrome webdriver
                     driver = webdriver.Chrome()
+
+                    # Open the specified URL
                     driver.get(url)
 
+                    # Set geolocation override using Chrome DevTools Protocol
                     dev_tools = driver.execute_cdp_cmd('Emulation.setGeolocationOverride', {
                         'latitude': latitude,
                         'longitude': longitude,
                         'accuracy': 1
                     })
 
+                    # Refresh the webpage
                     driver.refresh()
 
+                    # Wait for 5 seconds before closing the browser window
                     while driver.window_handles:
                         time.sleep(5)
-                    
+
+                    # Close the browser window
                     driver.quit()
                     
                 except Exception as e:
