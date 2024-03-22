@@ -30,6 +30,7 @@ import requests
 from threading import Thread
 from .utils.experience import user_details_api,save_data,update_user_usage
 from threading import Lock
+import time
 occurrences_lock = Lock()  # Define a lock for occurrences
 
 
@@ -296,26 +297,30 @@ class LaunchBrowser(APIView):
             
             if coordinates:
                 try:
-                    latitude = coordinates.get('lat')
-                    longitude = coordinates.get('lng')
+                    latitude = coordinates.get('lat').split(' ')[0]
+                    latitude = float(latitude)
+
+                    longitude = coordinates.get('lng').split(' ')[0]
+                    longitude = float(longitude)
+
+                    print("Latitude:", latitude)
+                    print("Longitude:", longitude)
     
                     driver = webdriver.Chrome()
-    
-                    # Construct the JavaScript function to set the location
-                    script = f"navigator.geolocation.getCurrentPosition = function(success) {{ success({{ coords: {{ latitude: {latitude}, longitude: {longitude} }} }}); }};"
-                    
-                    # Execute the JavaScript to set the location
-                    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-                        "source": script
-                    })
-                    
-                    # Navigate to the URL
                     driver.get(url)
+
+                    dev_tools = driver.execute_cdp_cmd('Emulation.setGeolocationOverride', {
+                        'latitude': latitude,
+                        'longitude': longitude,
+                        'accuracy': 1
+                    })
+
+                    driver.refresh()
+
+                    while driver.window_handles:
+                        time.sleep(5)
                     
-                    # Keep the browser open until explicitly closed
-                    input("Press Enter to close the browser...")  # This waits for user input to close the browser
-                    
-                    driver.quit()  # Close the browser explicitly
+                    driver.quit()
                     
                 except Exception as e:
                     print(f"Error setting browser location for {location}: {e}")
