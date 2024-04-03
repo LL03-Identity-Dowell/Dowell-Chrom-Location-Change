@@ -1,5 +1,7 @@
 import requests
 from fake_useragent import UserAgent
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 def get_proxies_from_file():
     """
@@ -60,21 +62,21 @@ def get_content_with_proxy(url:str, proxies:list):
             # Get a new user-agent string for each request
             headers = {'User-Agent': user_agent.random}
             
-            print(f'[+][{index+1}/{len(proxies)}] Making request to URL with {proxy}.\n')
+            logging.info(f'[+][{index+1}/{len(proxies)}] Making request to URL with {proxy}.\n')
             # Disclaimer: Set a timeout value else connection to proxy might led to lag in making the request to the server.
             response = requests.get(url, proxies=proxy, headers=headers, timeout=2, allow_redirects=False)
             
             # Check if the request was successful
             if response.status_code == 200:
                 write_proxies_to_file(proxy['https'])
-                print(response.text)
-                return (True, response.text)
+                # print(response.text)
+                return response.text
             
             # If the request was unsuccessful, print the status code
-            return (False, f"Request failed with status code {response.status_code}\n")
+            logging.info(f"[{proxy['https']}]: Request failed with status code {response.status_code}\n")
             
         except Exception as error:
-            return (False, str(error))
+            logging.debug(error)
     
     # If all proxies fail, return None
     return None
