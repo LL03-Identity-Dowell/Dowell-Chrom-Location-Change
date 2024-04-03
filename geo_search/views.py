@@ -33,6 +33,8 @@ from threading import Lock
 import time
 occurrences_lock = Lock()  # Define a lock for occurrences
 
+import random
+from geo_search.utils.proxy import get_proxies, get_proxies_from_file, get_content_with_proxy
 
 class GetCountries(APIView):
     def get(self,request):
@@ -235,10 +237,11 @@ class DownloadCSV(APIView):
 
 
 class GetLocations(APIView):
+    """ Returns the the cities of the selected countries submitted in the query."""
     def post(self, request):
         selected_countries = request.data.get('selectedCountries', [])
-        offset = request.data.get("offset")
-        limit = request.data.get("limit")
+        offset = request.data.get("offset") # determines the starting point to retrieve the cities.
+        limit = request.data.get("limit") # sets the maximum number of cities to return.
 
         location_data = {}
 
@@ -345,3 +348,34 @@ class LaunchBrowser(APIView):
                 # Handling individual location coordinate retrieval failures
 
         return Response({'message': 'All locations processed successfully'}, status=status.HTTP_200_OK)
+
+class GeoPosition(APIView):
+    def post(self, request):
+        url = request.data.get('url')
+        location = request.data.get('location')
+
+        if not url or not location: 
+            return Response({'error': 'Invalid URL or Location data provided'}, status=status.HTTP_400_BAD_REQUEST)
+    
+        proxies_from_file = get_proxies_from_file()
+
+        if len(proxies_from_file) >= 1:
+            proxies_from_api = get_proxies(country=location)
+            # Handle None response from API request : get_proxies().
+            if proxies_from_api is not None:
+                random.shuffle(proxies_from_api) # Randomize the proxies to increase chances of getting a valid proxy.
+                proxies = proxies_from_file + proxies_from_api
+            else:
+                proxies = proxies_from_file
+        else:
+            proxies = get_proxies(country=location)
+
+        if proxies is not None:
+            formatted_proxies = [{'http': proxy, 'https': proxy} for proxy in proxies]
+            content = get_content_with_proxy(url, formatted_proxies)
+            if content:
+                return Response({'status': 'success', 'content': content,}, status=status.HTTP_200_OK)
+            else:
+                return Response({'status': 'failed', 'message': 'No content could be resolved'}, status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response({'status': 'failed', 'message': 'No proxies available.'}, status=status.HTTP_204_NO_CONTENT)
