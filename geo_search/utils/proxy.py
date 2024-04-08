@@ -7,9 +7,11 @@ def get_proxies_from_file():
     """
     Get proxies cached inside the proxies.txt file
     """
-    with open('proxies.txt', 'r') as file:
-        proxies = [i.removesuffix('\n') for i in file.readlines()]
-        return proxies
+    import os
+    if os.path.exists('proxies.txt'):
+        with open('proxies.txt', 'r') as file:
+            proxies = [i.removesuffix('\n') for i in file.readlines()]
+            return proxies
 
 def write_proxies_to_file(proxy=None):
     """
