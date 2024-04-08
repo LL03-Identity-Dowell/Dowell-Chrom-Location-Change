@@ -7,7 +7,7 @@ def get_proxies_from_file():
     """
     Get proxies cached inside the proxies.txt file
     """
-    with open('proxies.txt', 'r') as file:
+    with open('proxies.txt', 'a+') as file:
         proxies = [i.removesuffix('\n') for i in file.readlines()]
         return proxies
 
