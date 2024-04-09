@@ -35,6 +35,7 @@ occurrences_lock = Lock()  # Define a lock for occurrences
 
 import random
 from geo_search.utils.proxy import get_proxies, get_proxies_from_file, get_content_with_proxy
+from geo_search.utils.countryISO import iso_mapping
 
 class GetCountries(APIView):
     def get(self,request):
@@ -352,27 +353,27 @@ class LaunchBrowser(APIView):
 class GeoPosition(APIView):
     def post(self, request):
         url = request.data.get('url')
+        # Use Locations from the get-countries endpoint.
         location = request.data.get('location')
 
+        location = iso_mapping.get(location)
+
         if not url or not location: 
-            return Response({'error': 'Invalid URL or Location data provided'}, status=status.HTTP_400_BAD_REQUEST)
-    
-        proxies_from_file = get_proxies_from_file()
-
-        if len(proxies_from_file) >= 1:
-            proxies_from_api = get_proxies(country=location)
-            # Handle None response from API request : get_proxies().
-            if proxies_from_api is not None:
-                random.shuffle(proxies_from_api) # Randomize the proxies to increase chances of getting a valid proxy.
-                proxies = proxies_from_file + proxies_from_api
-            else:
-                proxies = proxies_from_file
-        else:
-            proxies = get_proxies(country=location)
-
-        if proxies is not None:
+            return Response({'status': 'failed', 'message': 'Invalid URL or Location data provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        proxies_from_file = get_proxies_from_file(country=location)
+        if proxies_from_file is not None:
+            logging.info("[+] Testing cached proxies\n")
+            formatted_proxies = [{'http': proxy, 'https': proxy} for proxy in proxies_from_file]
+            content = get_content_with_proxy(url, location, formatted_proxies)
+            if content:
+                return Response({'status': 'success', 'content': content,}, status=status.HTTP_200_OK)
+        
+        proxies = get_proxies(country=location)
+        if proxies is not None and len(proxies) >= 1:
+            logging.info("[+] Testing API proxies\n")
             formatted_proxies = [{'http': proxy, 'https': proxy} for proxy in proxies]
-            content = get_content_with_proxy(url, formatted_proxies)
+            content = get_content_with_proxy(url, location, formatted_proxies)
             if content:
                 return Response({'status': 'success', 'content': content,}, status=status.HTTP_200_OK)
             else:
