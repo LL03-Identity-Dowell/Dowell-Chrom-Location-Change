@@ -1,6 +1,7 @@
 import os
 import json
 import requests
+import threading
 from fake_useragent import UserAgent
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -46,60 +47,79 @@ def get_proxies(latitude:str=None, longitude:str=None, country:str=None):
     - longitude (str): optional
     - country (str): The ISO code of the country. 
     """
-    url = f'https://api.proxyscrape.com/v3/free-proxy-list/get?request=displayproxies&country={country}&protocol=http&proxy_format=protocolipport&format=text&timeout=20000'
+    print(country)
+    url = f'https://api.proxyscrape.com/v3/free-proxy-list/get?request=displayproxies&country={country}&protocol=http,socks4&proxy_format=protocolipport&format=text&anonymity=Elite,Anonymous&timeout=20000'
     try:
         response = requests.get(url)
         if response.status_code == 200:
             proxies = response.text.split('\n')
             proxies = [i.removesuffix('\r') for i in proxies]
             proxies.pop()
-            # print(proxies)
+            print("Total Proxies:", len(proxies))
             return proxies
     except Exception as error:
         logging.info(f"[-] Proxies: {error}")
         return None
 
-def get_content_with_proxy(url:str, country:str, proxies:list):
+def make_request_with_proxy(url, country, proxy, results, success_flag):
+    try:
+        user_agent = UserAgent()
+        headers = {'User-Agent': user_agent.random}
+
+        if not success_flag.is_set():
+            response = requests.get(url, proxies=proxy, headers=headers, allow_redirects=False, timeout=10)
+            
+            if response.status_code == 200:
+                results[proxy['https']] = response.content  # Store successful response in results dictionary
+                write_proxies_to_file(country, proxy['https'])  # Write successful proxy to file for caching
+                logging.info(f"[+]: [{proxy['https']}] --> Request successful")
+                success_flag.set()
+                return
+            else:
+                logging.info(f"[{proxy['https']}]: Request failed with status code {response.status_code}")
+    except Exception as error:
+        logging.debug(f"Error with proxy {proxy['https']}: {error}")
+
+def get_content_with_proxy(url, country, proxies):
     """
     Get the content of a URL using a rotating list of proxies.
 
     Args:
     - url (str): The URL to retrieve content from.
+    - country (str): Country name (for logging or other purposes).
     - proxies (list): A list of proxy dictionaries, each containing 'http' and 'https' keys.
 
     Returns:
-    - str: The content of the URL.
-    - None: If the request fails after exhausting all proxies.
+    - list: A dictionary containing successful responses (key: proxy URL, value: response content).
     """
+    # Dictionary to store results
+    results = {}
+
+    # Event flag to signal success
+    success_flag = threading.Event()
     
-    # Create a user-agent generator
-    user_agent = UserAgent()
+    # List to store threads
+    threads = []
     
     # Iterate through the list of proxies
     for index, proxy in enumerate(proxies):
-        try:
-            # Get a new user-agent string for each request
-            headers = {'User-Agent': user_agent.random}
-            
-            logging.info(f'[+][{index+1}/{len(proxies)}] Making request to URL with {proxy}.')
-            # Disclaimer: Set a timeout value else connection to proxy might led to lag in making the request to the server.
-            response = requests.get(url, proxies=proxy, headers=headers, allow_redirects=False)
-            
-            # Check if the request was successful
-            if response.status_code == 200:
-                write_proxies_to_file(country, proxy['https'])
-                print(response.text)
-                return response.text
-            
-            # If the request was unsuccessful, print the status code
-            logging.info(f"[{proxy['https']}]: Request failed with status code {response.status_code}\n")
-            
-        except Exception as error:
-            print(f'[-]: {error}\n')
-            logging.debug(error)
-    
-    # If all proxies fail, return None
-    return None
+        # logging.info(f'[+][{index+1}/{len(proxies)}] Making request to URL with {proxy}.')
+
+        # Create a thread for each proxy request
+        thread = threading.Thread(target=make_request_with_proxy, args=(url, country, proxy, results, success_flag))
+        threads.append(thread)
+        thread.start()
+
+    # Wait for all threads to complete
+    for thread in threads:
+        # Breaks out of the loop once a thread is successful
+        if len(results) >= 1:
+            break
+        thread.join()
+        
+    # Return successful responses if it exist or None 
+    response = list(results.values())[0] 
+    return response if len(results) >=1 else None
 
 
 # Example usage:
