@@ -117,9 +117,8 @@ def get_content_with_proxy(url, country, proxies):
             break
         thread.join()
         
-    # Return successful responses if it exist or None 
-    response = list(results.values())[0] 
-    return response if len(results) >=1 else None
+    # Return successful responses if it exist or None
+    return list(results.values())[0] if len(results) >=1 else None
 
 
 # Example usage:
