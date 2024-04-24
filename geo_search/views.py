@@ -33,7 +33,7 @@ from threading import Lock
 import time
 occurrences_lock = Lock()  # Define a lock for occurrences
 
-import random
+import math
 from geo_search.utils.proxy import get_proxies, get_proxies_from_file, get_content_with_proxy
 from geo_search.utils.countryISO import iso_mapping
 
@@ -140,66 +140,100 @@ class HomepageView(APIView):
 @method_decorator(csrf_exempt, name='dispatch')
 class Chromeview(APIView):
     def post(self, request, format=None):
-        print("called")
+        # print("called")
         search_content = request.data.get('search_content', '')  # Access search_content as a string
         num_results = request.data.get('num_results')
 
         # Extract the selected location
-        city = request.data.get('city')
-        logging.info(f"Received search_content: {search_content}")
+        country = request.data.get('country')
+        # logging.info(f"Received search_content: {search_content}")
         # Perform the search and get the search results
-        search_results = self.perform_search(city,search_content,num_results)
+        search_results = self.perform_search(country,search_content,num_results)
         logging.info("Performing search")
-        # Return the search results as a JSON response
-        return Response({"message": "Location set successfully", 'search_results': search_results}, status=status.HTTP_200_OK)
+
+        # Return the search results
+        if isinstance(search_results, dict):
+            return Response(search_results, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message": "Location set successfully",'total': len(search_results), 'search_results': search_results}, status=status.HTTP_200_OK)
     # Perform the search feature in our app
-    def perform_search(self, city, search_content, num_results):
+    def perform_search(self, country, search_content, num_results):
         # Replace with your API key and search engine ID
         api_key = settings.GOOGLE_API_KEY  # Use the variable defined in your Django settings
         search_engine_id = settings.SEARCH_ENGINE_ID  # Use the variable defined in your Django settings
         # Get the location from the query parameters (e.g., /search/?location=New+York%2C+NY)
-        location = city
+        location = country
         # Get the search query from the query parameters
         query = search_content + " in " + location
         if not location or not query:
-            return JsonResponse({"error": "Both 'location' and 'query' parameters are required."}, status=400)
+            return {"message": "Both 'location' and 'query' parameters are required."}
         
         # Initialize variables for pagination
         start_index = 1
         total_results = []
+
+        # Maximum results per page (Google API limit)
+        results_per_page = 10
+
+        # Calculates the number of API requests needed based on num_results
+        num_pages = math.ceil(num_results / results_per_page)
+        print("Num Pages:", num_pages)
         
         # Convert num_results to an integer
         num_results = int(num_results)
+
+        # Maps the location to it's corresponding ISO country code.
+        country_code = iso_mapping.get(location)
+        if country_code is None:
+            return {"message": "country parameter must be a valid country from the dowell API"}
+        
+        # Defining the google API country format. Check google documentation for more information
+        cr_location = 'country' + country_code
+
         # Continue fetching results until we have the desired number or there are no more results
-        while len(total_results) < num_results:
-            # Calculate the number of results to fetch in this iteration (maximum of 10)
-            results_to_fetch = min(num_results - len(total_results), 10)
+        for page in range(num_pages):
+            # Determines the number of results remaining to fetch
+            if page != num_pages:
+                _ = num_results - (page * results_per_page)
+                results_to_fetch = results_per_page if _ > results_per_page else _
+                print("Fetch Results:", results_to_fetch)
+            else: results_to_fetch = results_per_page
+
+            start_index = page * results_per_page + 1 # Adjust the pointer to the next page.
+            print("Start Index:", start_index)
+
             # Construct the URL for the Google Custom Search API with pagination
-            url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={search_engine_id}&q={query}&gl={location}&num={results_to_fetch}&start={start_index}"
-            logging.info(f"API URL: {url}")  # Add this line to print the URL
-            # Make the API request
-            response = requests.get(url)
-            # Check if the request was successful
-            if response.status_code == 200:
-                try:
-                    # Parse the JSON response
-                    json_response = response.json()
+            url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={search_engine_id}&q={query}&gl={location}&cr={cr_location}&num={results_to_fetch}&start={start_index}"
+
+            # Setting up for location specific search
+            proxies_from_file = get_proxies_from_file(country=country_code)
+            if proxies_from_file is not None:
+                logging.info("[+] Using Cached Proxies\n")
+                formatted_proxies = [{'http': proxy, 'https': proxy} for proxy in proxies_from_file]
+                content = get_content_with_proxy(url, country_code, formatted_proxies)
+                if content:
+                    content = json.loads(content.decode("utf-8"))
                     # Extract the "items" field, which contains the search results
-                    items = json_response.get("items", [])
+                    items = content.get("items", [])
                     # Extract the "title," "link," "snippet," and "pagemap" (which contains images) fields for each search result
                     search_results = [{"title": item["title"], "link": item["link"], "snippet": item.get("snippet", ""), "images": item.get("pagemap", {}).get("cse_image", [])} for item in items]
                     # Add the results to the total_results list
                     total_results.extend(search_results)
-                    # If there are no more results, break out of the loop
-                    if len(search_results) < results_to_fetch:
-                        break
-                    # Increment the start index for the next pagination
-                    start_index += results_to_fetch
-                except Exception as e:
-                    # Handle any exceptions that may occur during JSON parsing or data extraction
-                    return JsonResponse({"error": str(e)}, status=500)
-            else:
-                return JsonResponse({"error": "Google Custom Search API request failed."}, status=response.status_code)
+                    continue # Skip calling the API proxies if cached proxies returns a response: Moves the loop pointer
+
+            proxies = get_proxies(country=country_code)
+            if proxies is not None and len(proxies) >= 1:
+                logging.info("[+] Using API proxies\n")
+                formatted_proxies = [{'http': proxy, 'https': proxy} for proxy in proxies]
+                content = get_content_with_proxy(url, country_code, formatted_proxies)
+                if content:
+                    content = json.loads(content.decode("utf-8"))
+                    # Extract the "items" field, which contains the search results
+                    items = content.get("items", [])
+                    # Extract the "title," "link," "snippet," and "pagemap" (which contains images) fields for each search result
+                    search_results = [{"title": item["title"], "link": item["link"], "snippet": item.get("snippet", ""), "images": item.get("pagemap", {}).get("cse_image", [])} for item in items]
+                    # Add the results to the total_results list
+                    total_results.extend(search_results)
+                    
         # Return the search results as a list of dictionaries
         return total_results
     
