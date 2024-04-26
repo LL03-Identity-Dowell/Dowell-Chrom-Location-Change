@@ -134,11 +134,75 @@ class HomepageView(APIView):
         })
 
 
+@method_decorator(csrf_exempt, name='dispatch')
+class Chromeview(APIView):
+    def post(self, request, format=None):
+        print("called")
+        search_content = request.data.get('search_content', '')  # Access search_content as a string
+        num_results = request.data.get('num_results')
 
+        # Extract the selected location
+        city = request.data.get('city')
+        logging.info(f"Received search_content: {search_content}")
+        # Perform the search and get the search results
+        search_results = self.perform_search(city,search_content,num_results)
+        logging.info("Performing search")
+        # Return the search results as a JSON response
+        return Response({"message": "Location set successfully", 'search_results': search_results}, status=status.HTTP_200_OK)
+    # Perform the search feature in our app
+    def perform_search(self, city, search_content, num_results):
+        # Replace with your API key and search engine ID
+        api_key = settings.GOOGLE_API_KEY  # Use the variable defined in your Django settings
+        search_engine_id = settings.SEARCH_ENGINE_ID  # Use the variable defined in your Django settings
+        # Get the location from the query parameters (e.g., /search/?location=New+York%2C+NY)
+        location = city
+        # Get the search query from the query parameters
+        query = search_content + " in " + location
+        if not location or not query:
+            return JsonResponse({"error": "Both 'location' and 'query' parameters are required."}, status=400)
+        
+        # Initialize variables for pagination
+        start_index = 1
+        total_results = []
+        
+        # Convert num_results to an integer
+        num_results = int(num_results)
+        # Continue fetching results until we have the desired number or there are no more results
+        while len(total_results) < num_results:
+            # Calculate the number of results to fetch in this iteration (maximum of 10)
+            results_to_fetch = min(num_results - len(total_results), 10)
+            # Construct the URL for the Google Custom Search API with pagination
+            url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={search_engine_id}&q={query}&gl={location}&num={results_to_fetch}&start={start_index}"
+            logging.info(f"API URL: {url}")  # Add this line to print the URL
+            # Make the API request
+            response = requests.get(url)
+            # Check if the request was successful
+            if response.status_code == 200:
+                try:
+                    # Parse the JSON response
+                    json_response = response.json()
+                    # Extract the "items" field, which contains the search results
+                    items = json_response.get("items", [])
+                    # Extract the "title," "link," "snippet," and "pagemap" (which contains images) fields for each search result
+                    search_results = [{"title": item["title"], "link": item["link"], "snippet": item.get("snippet", ""), "images": item.get("pagemap", {}).get("cse_image", [])} for item in items]
+                    # Add the results to the total_results list
+                    total_results.extend(search_results)
+                    # If there are no more results, break out of the loop
+                    if len(search_results) < results_to_fetch:
+                        break
+                    # Increment the start index for the next pagination
+                    start_index += results_to_fetch
+                except Exception as e:
+                    # Handle any exceptions that may occur during JSON parsing or data extraction
+                    return JsonResponse({"error": str(e)}, status=500)
+            else:
+                return JsonResponse({"error": "Google Custom Search API request failed."}, status=response.status_code)
+        # Return the search results as a list of dictionaries
+        return total_results
 
     
 @method_decorator(csrf_exempt, name='dispatch')
-class Chromeview(APIView):
+class ProxiesView(APIView):
     def post(self, request, format=None):
         # print("called")
         search_content = request.data.get('search_content', '')  # Access search_content as a string
