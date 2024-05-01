@@ -6,13 +6,21 @@ import React, {
   useMemo,
   useCallback,
 } from "react";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import Link from "next/link";
 import Image from "next/image";
 import { CSVLink } from "react-csv";
 import logo from "../../../public/company logo.png";
 import { ClipLoader } from "react-spinners";
 import ReactSelect, { MultiValue, Options, createFilter } from "react-select";
+import {
+  ErrorMessage,
+  FormikConsumer,
+  FormikContext,
+  FormikProvider,
+  useFormik,
+} from "formik";
+import * as Yup from "yup";
 
 const override: CSSProperties = {
   display: "block",
@@ -32,25 +40,35 @@ interface SearchResult {
   }[];
   search_content: string;
 }
+type FormValues = {
+  countries: MultiValue<DropDownOptions>;
+  locations: MultiValue<DropDownOptions>;
+  searchContent: string;
+  numResults: number;
+  email: string;
+};
 type DropDownOptions = {
   value: string;
   label: string;
 };
-
+const SearchByLocationSchema = Yup.object({
+  countries: Yup.array(
+    Yup.object({ value: Yup.string(), label: Yup.string() })
+  ).min(1, "Please select any country"),
+  locations: Yup.array(
+    Yup.object({ value: Yup.string(), label: Yup.string() })
+  ).min(1, "Please select any location"),
+  searchContent: Yup.string().required("Please enter any search keyword"),
+  numResults: Yup.number()
+    .min(1, "Please select number of results more than 0")
+    .required("Please enter number of results"),
+  email: Yup.string()
+    .email("Please enter valid email")
+    .required("Please enter your email"),
+});
 export const Search = () => {
-  const [selectedCountries, setSelectedCountries] = useState<
-    MultiValue<DropDownOptions>
-  >([]);
-  const [country, setCountry] = useState("");
-  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [allCountries, setAllCountries] = useState<DropDownOptions[]>([]);
   const [allLocaions, setAllLocations] = useState<DropDownOptions[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [selectedLocations, setSelectedLocations] = useState<
-    MultiValue<DropDownOptions>
-  >([]);
-  const [location, setLocation] = useState("");
-  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [search, setSearch] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -62,56 +80,29 @@ export const Search = () => {
   const [redeemMessage, setRedeemMessage] = useState("");
   const [csvresults, setCsvResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-
-  const handleCouponChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCouponValue(e.target.value);
-  };
-
-  const csvData = csvresults;
-  const [formData, setFormData] = useState({
-    searchContent: "",
-    numResults: 0,
-    email: "",
-  });
-  const handleFromDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prevState) => ({
-      ...prevState,
-      [name]: value,
-      location: selectedLocations,
-    }));
-    if (name === "location") {
-      setLocation(value);
-      setSelectedLocations([]);
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({
+  const [errorMessage, setErrorMessage] = useState<string>("");
+  const formik = useFormik<FormValues>({
+    initialValues: {
+      locations: [],
+      countries: [],
       searchContent: "",
       numResults: 0,
       email: "",
-    });
-    setSelectedCountries([]);
-    setSelectedLocations([]);
+    },
+    validationSchema: SearchByLocationSchema,
+    onSubmit: verifyUser,
+  });
+  const {
+    values,
+    setFieldValue,
+    handleChange,
+    handleBlur,
+    handleSubmit,
+    handleReset,
+  } = formik;
+  const handleCouponChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCouponValue(e.target.value);
   };
-
-  const filteredCountries = useMemo(() => {
-    return allCountries.filter((_country: any) =>
-      _country.label.toLowerCase().includes(country.toLowerCase())
-    );
-  }, [allCountries]);
-
-  // const filteredLocations = allLocaions.filter((_location) =>
-  //   _location.toLowerCase().includes(location.toLowerCase())
-  // );
-
-  const indexOfLastLocation = currentPage * LIMIT;
-  const indexOfFirstLocation = indexOfLastLocation - LIMIT;
-  // const currentLocations = filteredLocations?.slice(
-  //   indexOfFirstLocation,
-  //   indexOfLastLocation
-  // );
 
   const fetchCountries = async () => {
     try {
@@ -132,9 +123,8 @@ export const Search = () => {
 
   const fetchLocation = () => {
     try {
-      console.log("SELECTED COUNTRY", selectedCountries);
       const body = {
-        selectedCountries: selectedCountries.map((item) => item.label),
+        selectedCountries: values.countries.map((item) => item.label),
         offset: 0,
         limit: 17000,
       };
@@ -154,7 +144,6 @@ export const Search = () => {
                 tempLocations.push({ value: item.name, label: item.name });
               }
             });
-            console.log("LOCATIONS", tempLocations);
             setAllLocations(tempLocations);
           }
         });
@@ -168,10 +157,10 @@ export const Search = () => {
       setVerify(false);
       setSearch(true);
       const body = {
-        location: selectedLocations.map((item) => item.value),
-        search_content: formData.searchContent,
-        num_results: formData.numResults,
-        email: formData.email,
+        location: values.locations.map((item) => item.value),
+        search_content: values.searchContent,
+        num_results: values.numResults,
+        email: values.email,
         occurrences: experience,
       };
       const response = await axios.post(
@@ -196,9 +185,9 @@ export const Search = () => {
           []
         );
         setCsvResults(mergedResults as any[]);
+        setFieldValue("locations", []);
+        setFieldValue("countries", []);
         setSearch(false);
-        setSelectedLocations([] as DropDownOptions[]);
-        setSelectedCountries([] as DropDownOptions[]);
       } else {
         setSearch(false);
       }
@@ -217,7 +206,7 @@ export const Search = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            email: formData.email,
+            email: values.email,
             coupon: couponValue,
             product_number: "UXLIVINGLAB004",
           }),
@@ -247,13 +236,17 @@ export const Search = () => {
     }
   };
 
-  const verifyUser = async () => {
+  async function verifyUser(values: FormValues) {
     try {
+      if (errorMessage) {
+        setErrorMessage("");
+      }
+
       setVerify(true);
       setIsLoading(true);
       const body = {
         product_number: "UXLIVINGLAB004",
-        email: formData.email,
+        email: values.email,
       };
 
       const response = await axios.post(
@@ -261,24 +254,32 @@ export const Search = () => {
         body
       );
 
-      if (response.status === 200) {
+      if (response.data.success) {
         const response = await axios.get(
-          `https://100105.pythonanywhere.com/api/v3/experience_database_services/?type=get_user_email&product_number=UXLIVINGLAB004&email=${formData.email}`
+          `https://100105.pythonanywhere.com/api/v3/experience_database_services/?type=get_user_email&product_number=UXLIVINGLAB004&email=${values.email}`
         );
 
-        if (response.status === 200) {
+        if (response.data.success) {
           const occurence = response.data?.occurrences;
           setExperience(occurence);
           setIsLoading(false);
         } else {
           setIsLoading(false);
+          setErrorMessage(response?.data?.message);
         }
+      } else {
+        setIsLoading(false);
+        setErrorMessage(response?.data?.message);
       }
-    } catch (error) {
-      console.error("Error fetching search results:", error);
+    } catch (error: any | AxiosError) {
+      setErrorMessage(
+        error?.response?.data?.message
+          ? error?.response?.data?.message
+          : "Failed to serve your request"
+      );
       setIsLoading(false);
     }
-  };
+  }
 
   useEffect(() => {
     fetchCountries();
@@ -286,113 +287,119 @@ export const Search = () => {
 
   useEffect(() => {
     fetchLocation();
-  }, [selectedCountries]);
+  }, [values.countries]);
 
   return (
     <div className="w-full h-full flex flex-col md:flex-row bg-white ">
       <div
-        className={` p-5 space-y-5 flex flex-col justify-center items-center md:flex-row md:space-x-20 ${
+        className={`p-5 space-y-5 flex flex-col justify-center items-center md:flex-row md:space-x-20 ${
           verify ? "opacity-30" : ""
         } `}
       >
-        <div className="flex justify-start w-full  md:w-1/2 h-full space-y-5 flex-col items-center">
-          <div className="flex flex-col w-full justify-center md:h-[120px] p-2 items-center">
-            <div className="w-[100px] h-[100px]">
-              <Image src={logo} alt="" className="w-full h-full" />
-            </div>
-            <h1 className="text-[1.5rem] font-medium">
-              Location Specific Search
-            </h1>
-          </div>
+        <div className="w-full h-full xl:flex-row lg:flex-row md:flex-col-reverse sm:flex-col-reverse  flex justify-start space-y-5  items-center">
           <div className="w-full flex p-5  space-y-5 flex-col">
-            <form
-              action=""
-              onSubmit={(e) => {
-                e.preventDefault();
-              }}
-              className="space-y-3 "
-            >
-              {/* {console.log("allCountries", allCountries)} */}
-              <div className="space-y-1">
-                <label htmlFor="">Select Country(s)</label>
-                <ReactSelect
-                  options={allCountries}
-                  value={selectedCountries}
-                  isMulti={true}
-                  onChange={(values: MultiValue<DropDownOptions>) =>
-                    setSelectedCountries(values)
-                  }
-                  placeholder="Select country"
-                />
+            <div className="flex flex-col w-full justify-center md:h-[120px] p-2 items-center">
+              <div className="w-[100px] h-[100px]">
+                <Image src={logo} alt="" className="w-full h-full" />
               </div>
-              <div className="space-y-1 -z-10">
-                <label htmlFor="">Select Location(s)</label>
+              <h1 className="text-[1.5rem] font-medium">
+                Location Specific Search
+              </h1>
+            </div>
+            <FormikProvider value={formik}>
+              <form onSubmit={handleSubmit} className="space-y-3">
+                <div className="space-y-1">
+                  <label htmlFor="">Select Country(s)</label>
+                  <ReactSelect
+                    options={allCountries}
+                    value={values.countries}
+                    isMulti={true}
+                    id="countries"
+                    name="countries"
+                    onChange={(value) => setFieldValue("countries", value)}
+                    onBlur={handleBlur}
+                    placeholder="Select country"
+                  />
+                  <ErrorMessage name="countries" />
+                </div>
+                <div className="space-y-1 -z-10">
+                  <label htmlFor="">Select Location(s)</label>
+                  <ReactSelect
+                    filterOption={createFilter({
+                      ignoreAccents: false,
+                    })}
+                    options={allLocaions}
+                    value={values.locations}
+                    isMulti={true}
+                    id="locations"
+                    name="locations"
+                    onChange={(value) => setFieldValue("locations", value)}
+                    placeholder="Select locations"
+                  />
+                  <ErrorMessage name="locations" />
+                </div>
+                <div className="space-y-1">
+                  <label htmlFor="searchContent">Search Keyword</label>
+                  <input
+                    type="text"
+                    placeholder="Hotel, Restaurant, Park..."
+                    className="w-full p-2 border-[1px] border-gray-300 rounded-md focus:outline-none focus:border-2 focus:border-blue-500"
+                    name="searchContent"
+                    id="searchContent"
+                    value={values.searchContent}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                  <ErrorMessage name="searchContent" />
+                </div>
 
-                <ReactSelect
-                  filterOption={createFilter({
-                    ignoreAccents: false,
-                  })}
-                  options={allLocaions}
-                  value={selectedLocations}
-                  isMulti={true}
-                  onChange={(values) => setSelectedLocations((prev) => values)}
-                  placeholder="Select locations"
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="searchContent">Search Keyword</label>
-                <input
-                  type="text"
-                  placeholder="Hotel, Restaurant, Park..."
-                  className="w-full p-2 border-[1px] border-gray-300 rounded-md focus:outline-none focus:border-2 focus:border-blue-500"
-                  name="searchContent"
-                  onChange={handleFromDataChange}
-                  required
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label htmlFor="numResults">Number of Results</label>
-                <input
-                  type="number"
-                  placeholder="Number of results "
-                  className="w-full p-2 border-[1px] border-gray-300 rounded-md focus:outline-none focus:border-2 focus:border-blue-500"
-                  name="numResults"
-                  onChange={handleFromDataChange}
-                  required
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="email">Email</label>
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="w-full p-2 border-[1px] border-gray-300 rounded-md focus:outline-none focus:border-2 focus:border-blue-500"
-                  name="email"
-                  onChange={handleFromDataChange}
-                  required
-                />
-              </div>
-              <div className="flex space-x-5 w-full">
-                <button
-                  onClick={verifyUser}
-                  type="submit"
-                  className={`w-[40%] bg-[#61b84c] hover:bg-[#62b84cda] text-white text-[12px] font-bold py-4 px-6 rounded-full focus:outline-none focus:ring focus:border-green-500 ${
-                    search ? "cursor-not-allowed opacity-60" : ""
-                  }`}
-                >
-                  {search ? "Searching..." : "Search"}
-                </button>
-                <button
-                  type="reset"
-                  className="w-[30%] p-2 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full focus:outline-none text-[12px] focus:ring focus:border-red-500 "
-                  onClick={resetForm}
-                >
-                  Reset
-                </button>
-              </div>
-            </form>
-
+                <div className="space-y-1">
+                  <label htmlFor="numResults">Number of Results</label>
+                  <input
+                    type="number"
+                    placeholder="Number of results "
+                    className="w-full p-2 border-[1px] border-gray-300 rounded-md focus:outline-none focus:border-2 focus:border-blue-500"
+                    name="numResults"
+                    id="numResults"
+                    value={values.numResults}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                  <ErrorMessage name="numResults" />
+                </div>
+                <div className="space-y-1">
+                  <label htmlFor="email">Email</label>
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    className="w-full p-2 border-[1px] border-gray-300 rounded-md focus:outline-none focus:border-2 focus:border-blue-500"
+                    name="email"
+                    id="email"
+                    value={values.email}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                  <ErrorMessage name="email" />
+                </div>
+                <div className="flex space-x-5 w-full">
+                  <button
+                    type="submit"
+                    className={`w-[40%] bg-[#61b84c] hover:bg-[#62b84cda] text-white text-[12px] font-bold py-4 px-6 rounded-full focus:outline-none focus:ring focus:border-green-500 ${
+                      search ? "cursor-not-allowed opacity-60" : ""
+                    }`}
+                  >
+                    {search ? "Searching..." : "Search"}
+                  </button>
+                  <button
+                    type="reset"
+                    className="w-[30%] p-2 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full focus:outline-none text-[12px] focus:ring focus:border-red-500 "
+                    onClick={handleReset}
+                  >
+                    Reset
+                  </button>
+                </div>
+              </form>
+            </FormikProvider>
             <div className="space-y-2">
               <h2 className="text-xl font-normal">Location Specific Search</h2>
               <p className="text-sm font-light">
@@ -425,76 +432,75 @@ export const Search = () => {
               </a>
             </div>
           </div>
-        </div>
-
-        <div className="w-full md:w-1/2 h-full flex flex-col  justify-start items-center">
-          <div className="flex flex-wrap max-w-full rounded-t-lg justify-between items-center md:max-w-full gap-2 md:min-w-[60px] max-h-[250px] min-h-[100px] pb-3 mb-10">
-            {results?.length ? (
-              results.map((data, index) => (
-                <button
-                  onClick={() => setActiveIndex(index)}
-                  className={`${
-                    activeIndex === index
-                      ? "bg-[#3B82F6] text-white"
-                      : "bg-gray-400 text-black"
-                  } hover:bg-[#3B82F6] hover:text-white transition-all w-[30%] rounded-t-lg  min-h-[70px] max-h-[80px] max-w-full flex justify-center text-center px-3 py-2 items-center grow `}
-                  key={index}
-                >
-                  <span>{`${data.results.length} search results for "${formData.searchContent}" in  ${data.city}`}</span>
-                </button>
-              ))
-            ) : (
-              <></>
-            )}
-          </div>
-
-          {results?.length ? (
-            <div className="bg-white w-full bottom-0  p-5 max-w-full max-h-[850px] overflow-y-auto ">
-              {results
-                ?.find((_, index) => index === activeIndex)
-                ?.results?.map((result, index) => (
-                  <div
-                    className="flex flex-col w-full  border-b-2 p-3 space-y-4 "
+          <div className="w-full h-full flex flex-col  justify-start items-center">
+            <div className="flex flex-wrap max-w-full rounded-t-lg justify-between items-center md:max-w-full gap-2 md:min-w-[60px] max-h-[250px] min-h-[100px] pb-3 mb-10">
+              {results?.length ? (
+                results.map((data, index) => (
+                  <button
+                    onClick={() => setActiveIndex(index)}
+                    className={`${
+                      activeIndex === index
+                        ? "bg-[#3B82F6] text-white"
+                        : "bg-gray-400 text-black"
+                    } hover:bg-[#3B82F6] hover:text-white transition-all w-[30%] rounded-t-lg  min-h-[70px] max-h-[80px] max-w-full flex justify-center text-center px-3 py-2 items-center grow `}
                     key={index}
                   >
-                    <Link
-                      href={result.link}
-                      className="md:text-[25px] text-[20px] text-blue-600 hover:text-red-500"
-                      target="_blank"
-                    >
-                      {result.title}
-                    </Link>
-                    <p className="md:text-[18px] text-[14px]">
-                      {result.snippet}
-                    </p>
-                    <div className="w-[400px] h-[200px] max-h-[200px] flex justify-start border-2">
-                      {result.images.length ? (
-                        <Image
-                          src={`${result.images[0].src}`}
-                          width={400}
-                          height={400}
-                          alt=""
-                          className="object-cover object-center"
-                        />
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
+                    <span>{`${data.results.length} search results for "${data.search_content}" in  ${data.city}`}</span>
+                  </button>
+                ))
+              ) : (
+                <></>
+              )}
+            </div>
 
-              <button
-                className={`p-3 hover:text-green-500 text-[20px] font-bold `}
-              >
-                <CSVLink data={csvresults}>
-                  Click to download search results
-                </CSVLink>
-              </button>
-            </div>
-          ) : (
-            <div className="max-w-full max-h-full overflow-y-auto flex flex-col justify-center items-center">
-              <p className="text-5xl font-thin">No Results</p>
-              <p className="text-sm font-thin">Fill details to get results</p>
-            </div>
-          )}
+            {results?.length ? (
+              <div className="bg-white w-full bottom-0  p-5 max-w-full max-h-[850px] overflow-y-auto ">
+                {results
+                  ?.find((_, index) => index === activeIndex)
+                  ?.results?.map((result, index) => (
+                    <div
+                      className="flex flex-col w-full  border-b-2 p-3 space-y-4 "
+                      key={index}
+                    >
+                      <Link
+                        href={result.link}
+                        className="md:text-[25px] text-[20px] text-blue-600 hover:text-red-500"
+                        target="_blank"
+                      >
+                        {result.title}
+                      </Link>
+                      <p className="md:text-[18px] text-[14px]">
+                        {result.snippet}
+                      </p>
+                      <div className="md:w-[400px] h-[200px] sm:w-svw max-h-[200px] flex justify-start border-2">
+                        {result.images.length ? (
+                          <Image
+                            src={`${result.images[0].src}`}
+                            width={400}
+                            height={400}
+                            alt=""
+                            className="sm:w-full object-cover object-center"
+                          />
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+
+                <button
+                  className={`p-3 hover:text-green-500 text-[20px] font-bold `}
+                >
+                  <CSVLink data={csvresults}>
+                    Click to download search results
+                  </CSVLink>
+                </button>
+              </div>
+            ) : (
+              <div className="max-w-full max-h-full overflow-y-auto flex flex-col justify-center items-center">
+                <p className="text-5xl font-thin">No Results</p>
+                <p className="text-sm font-thin">Fill details to get results</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -524,6 +530,10 @@ export const Search = () => {
               <ClipLoader color="black" loading={isLoading} size={17} />
               <h1>Loading</h1>
             </div>
+          ) : errorMessage ? (
+            <h1 className="w-full flex justify-center items-center text-center">
+              {errorMessage}
+            </h1>
           ) : (
             <h1 className="w-full flex justify-center items-center text-center">
               You have used Location Specific Search {experience} times
@@ -540,9 +550,10 @@ export const Search = () => {
             Cancel
           </button>
           <button
-            className={`bg-green-600 py-2 px-4 hover:bg-gray-400 text-white font-bold rounded-full ${
+            className={`bg-[#61b84c] hover:bg-[#62b84cda] py-2 px-4 text-white font-bold rounded-full ${
               experience >= 6 ? "hidden" : "flex"
-            }`}
+            } ${isLoading ? "cursor-not-allowed" : "cursor-pointer"}`}
+            disabled={isLoading || experience >= 6}
             onClick={handleSearch}
           >
             Continue
