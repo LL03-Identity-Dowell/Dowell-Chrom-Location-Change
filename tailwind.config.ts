@@ -8,10 +8,10 @@ const config: Config = {
   ],
   theme: {
     screens: {
-      sm: '480px',
-      md: '768px',
-      lg: '976px',
-      xl: '1440px'
+      sm: "320px",
+      md: "768px",
+      lg: "1280px",
+      xl: "1660px",
     },
     extend: {
       backgroundImage: {
