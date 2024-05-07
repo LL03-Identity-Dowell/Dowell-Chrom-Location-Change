@@ -1,6 +1,7 @@
 import os
 import json
 import requests
+import concurrent.futures
 import threading
 from fake_useragent import UserAgent
 import logging
@@ -70,7 +71,8 @@ def make_request_with_proxy(url, country, proxy, results, success_flag):
             response = requests.get(url, proxies=proxy, headers=headers, allow_redirects=False, timeout=10)
             
             if response.status_code == 200:
-                results[proxy['https']] = response.content  # Store successful response in results dictionary
+                # print(f"\n\n{url}: {response.status_code}")
+                results[proxy['https']] = response.status_code  # Store successful response in results dictionary
                 write_proxies_to_file(country, proxy['https'])  # Write successful proxy to file for caching
                 logging.info(f"[+]: [{proxy['https']}] --> Request successful")
                 success_flag.set()
@@ -120,6 +122,52 @@ def get_content_with_proxy(url, country, proxies):
     # Return successful responses if it exist or None
     return list(results.values())[0] if len(results) >=1 else None
 
+
+# For ProxiesView API Endpoint.
+def make_request(url, proxy):
+    try:
+        user_agent = UserAgent()
+        headers = {'User-Agent': user_agent.random}
+        response = requests.get(url, headers=headers, proxies={"http": proxy, "https": proxy}, timeout=10)
+        if response.status_code == 200:
+            # print(f"\n\n{url}: {response.status_code}\n\n")
+            return url, response.content, "Success"
+        else:
+            return url, response.status_code, f"Failed (Status Code: {response.status_code})"
+    except Exception as e:
+        # print(f"\n\nFailed Request: {e}\n\n")
+        return url, "500", f"Error: {e}"
+
+def multiple_url_request(urls, proxies):
+    results = []
+    url_futures_map = {url: [] for url in urls}  # Map to track futures for each URL
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(proxies)) as executor:
+        for url in urls:
+            for proxy in proxies:
+                future = executor.submit(make_request, url, proxy)
+                url_futures_map[url].append(future)  # Store future for each URL
+
+        for url in urls:
+            success_obtained = False
+            for future in concurrent.futures.as_completed(url_futures_map[url]):
+                try:
+                    result = future.result()
+                    # print(f"\n\n{result}\n\n")
+                    if result[2] == "Success":
+                        if not success_obtained:
+                            results.append(result)
+                            success_obtained = True  # Mark success obtained for this URL
+                            # Cancel all other pending requests for this URL
+                            for other_future in url_futures_map[url]:
+                                if other_future != future and not other_future.done():
+                                    other_future.cancel()
+                            break  # Exit the loop once successful response is obtained
+                except Exception as e:
+                    pass
+    
+    # print(results)
+    return [result[1] for result in results]
 
 # Example usage:
 # url = 'https://www.britbox.com' #Worked
