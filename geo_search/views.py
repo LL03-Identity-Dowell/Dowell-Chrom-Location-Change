@@ -25,16 +25,32 @@ from .utils.get_cordinates import GetCoordinates
 import os
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver import DesiredCapabilities
 import logging
 import requests
 from threading import Thread
 from .utils.experience import user_details_api,save_data,update_user_usage
 from threading import Lock
 import time
+from fake_useragent import UserAgent
 occurrences_lock = Lock()  # Define a lock for occurrences
 
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+# Configure Chrome options for headless mode
+chrome_options = Options()
+chrome_options.add_argument('--headless')  # Run Chrome in headless mode
+chrome_options.add_argument('--disable-gpu')
+
+# user_agent = UserAgent(browsers=['chrome'], platforms='pc')
+# chrome_options.add_argument(f"user-agent={user_agent.random}")
+
 import math
-from geo_search.utils.proxy import get_proxies, get_proxies_from_file, get_content_with_proxy
+from geo_search.utils.proxy import get_proxies, get_proxies_from_file, get_content_with_proxy, multiple_url_request
 from geo_search.utils.countryISO import iso_mapping
 
 class GetCountries(APIView):
@@ -216,39 +232,56 @@ class ProxiesView(APIView):
 
     def perform_search(self, country, search_content, num_results):
         location = country
-        query = search_content + " in " + location
+        query = search_content
 
         if not location or not query:
             return {"message": "Both 'location' and 'query' parameters are required."}
 
-        # Initialize variables for pagination
+        # Initialize variables
         total_results = []
+        urls = []
+        seen_links = set()
 
-        # Construct the URL for the Google search
-        google_url = f"https://www.google.com/search?q={query}&num={num_results}"
-
-        # Setting up proxy
-        proxies = get_proxies(country=country)
+        # Construct the URL for the Google/Bing search
+        proxy_check_url = "https://www.example.com/"
+        google_url = "https://www.google.com/search"
+        # google_url = f"https://www.google.com/search?q={query}&num={num_results}"
+        # params = {"q": query, "num": num_results}
+        
+        proxies = get_proxies(country=iso_mapping.get(location))
         if proxies is not None and len(proxies) >= 1:
-            proxy = proxies[0]  # Assuming you're using the first proxy in the list
-            proxies_dict = {
-                'http': proxy,
-                'https': proxy
-            }
-            response = requests.get(google_url, proxies=proxies_dict)
-        else:
-            response = requests.get(google_url)
-
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            # Extract search results
-            search_results = soup.find_all('div', class_='g')
-            for result in search_results:
-                title = result.find('h3').text
-                link = result.find('a')['href']
-                snippet = result.find('span', class_='aCOpRe').text if result.find('span', class_='aCOpRe') else ''
-                total_results.append({"title": title, "link": link, "snippet": snippet})
-
+            logging.info("[+] Testing API proxies\n")
+            formatted_proxies = [{'http': proxy, 'https': proxy} for proxy in proxies]
+            query = query + "%20in%20" + location # Enhance search query
+            
+            for page in range(math.ceil(num_results//10)):
+                query = query.replace(" ", "%20") # Sanitize query string for search
+                # print("\n\n\n", page * 10 + 1, "\n\n\n")
+                
+                bing_url = f"https://www.bing.com/search?q={query}&first={page * 10 + 1}"
+                urls.append(bing_url)
+            
+            print(urls)
+            print("[+] Scraping for search results, please wait...")
+            contents = multiple_url_request(urls, proxies)
+            # print(contents)
+            if contents is not None:
+                for content in contents:
+                    soup = BeautifulSoup(content, 'html.parser')
+                    try:
+                        search_results = soup.find_all('li', class_='b_algo')
+                        for result in search_results:
+                            title = result.find('h2').text  # Bing uses <h2> tags for result titles
+                            link = result.find('a')['href']
+                            snippet = result.find('p').text if result.find('p') else ''  # Snippet is often found within <p> tags
+                            if link not in seen_links:
+                                total_results.append({"title": title, "link": link, "snippet": snippet})
+                                seen_links.add(link)
+                            print(f"\n\n\n{title}\n{link}\n{snippet}\n")
+                    except Exception as e:
+                        print(f"[-]: {e}")
+            else:
+                return {'message': 'Could not retrieve results'}
         return total_results
 class DownloadCSV(APIView):
 
