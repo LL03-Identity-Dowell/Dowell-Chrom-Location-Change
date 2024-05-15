@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path('google-search/', views.ModifiedChromeview.as_view()),
     path('geo_location', views.Chromeview.as_view(), name='geolocation'),
     path('proxies_search', views.ProxiesView.as_view(), name='proxies_search'),
     path('get-countries',views.GetCountries.as_view()),
