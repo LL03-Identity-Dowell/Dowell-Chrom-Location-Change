@@ -158,7 +158,7 @@ export const Search = () => {
       setSearch(true);
       const body = {
         location: values.locations.map((item) => item.value),
-        search_content: values.searchContent,
+        search: values.searchContent,
         num_results: values.numResults,
         email: values.email,
         occurrences: experience,
